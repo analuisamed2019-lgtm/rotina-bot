@@ -43,7 +43,7 @@ def main():
 
     app.job_queue.run_daily(
         send_end_of_day_checkin,
-        time=time(21, 30, 0, tzinfo=tz),
+        time=time(20, 0, 0, tzinfo=tz),
         name="end_of_day_checkin",
     )
 
