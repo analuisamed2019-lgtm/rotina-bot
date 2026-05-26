@@ -16,10 +16,21 @@ DETERMINAÇÃO DA SEMANA DO MÊS:
 DIAS DE TRABALHO: segunda, quarta, sexta + domingo em semanas ímpares
 DIAS DE FOLGA: terça, quinta, sábado + domingo em semanas pares
 
+TEMPOS DE DESLOCAMENTO (sempre considerar ao montar a agenda):
+- Casa → trabalho (plantão): 40 min
+- Casa → yoga: 20 min
+- Casa → academia: 15 min
+- Academia → sobrancelha: 5 min
+- Casa → shopping / costureira / lavanderia: 7 min
+- Terapia: em casa (sem deslocamento)
+- Estudo: em casa (sem deslocamento)
+Sempre subtrair o tempo de deslocamento do horário de saída para calcular quando deve sair de casa.
+Exemplo: yoga às 19h00 → sair de casa às 18h40.
+
 BLOCOS OBRIGATÓRIOS NOS DIAS DE TRABALHO:
 - Acordar às 5h20
 - Banho + higiene + arrumar-se (antes do deslocamento)
-- Deslocamento: 40 minutos antes do horário de entrada no plantão
+- Sair de casa 40 minutos antes do horário de entrada no plantão
 
 ROTINA PADRÃO NOS DIAS DE FOLGA:
 - Acordar às 6h00
