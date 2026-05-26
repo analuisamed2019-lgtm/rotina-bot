@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s \"https://api.telegram.org/bot8764287001:AAFwFJUEJmwD5xxfqJqfdElxGC4_Br7eeWI/getUpdates\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -m pip install google-auth-oauthlib --quiet)",
+      "Bash(grep \"=$\")",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -W ignore -c ' *)",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ]
+  }
+}
