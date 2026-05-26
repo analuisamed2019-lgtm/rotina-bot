@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, date
 
 import pytz
 
@@ -9,6 +9,9 @@ from config import TELEGRAM_CHAT_ID, TIMEZONE
 from state import format_state_for_prompt, load_state
 
 logger = logging.getLogger(__name__)
+
+# Data de renovação do Railway (30 dias a partir de 26/05/2026)
+RAILWAY_RENEWAL_DATE = date(2026, 6, 25)
 
 
 async def send_morning_briefing(context):
@@ -45,3 +48,12 @@ async def send_morning_briefing(context):
         )
     except Exception:
         await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=full_message)
+
+    # Aviso de renovação do Railway (7 dias antes e no dia)
+    days_until_renewal = (RAILWAY_RENEWAL_DATE - now.date()).days
+    if days_until_renewal in (7, 3, 1, 0):
+        if days_until_renewal == 0:
+            msg = "🚨 Hoje é o dia de renovar o plano do Railway para o bot continuar funcionando! Acesse railway.app → Billing."
+        else:
+            msg = f"⚠️ Lembrete: o plano do Railway renova em {days_until_renewal} dia(s) ({RAILWAY_RENEWAL_DATE.strftime('%d/%m/%Y')}). Acesse railway.app → Billing para garantir que o cartão está ok."
+        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
