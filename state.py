@@ -157,3 +157,48 @@ def _deep_merge(base: dict, updates: dict) -> dict:
 
 def _deep_copy(obj):
     return json.loads(json.dumps(obj))
+
+
+def advance_block(block: str, steps: int = 1) -> None:
+    state = load_state()
+    b1 = state["study_blocks"]["block1"]
+    b2 = state["study_blocks"]["block2"]
+    b4 = state["study_blocks"]["block4"]
+
+    if block == "block1_cirurgia":
+        b1["cirurgia_index"] = min(b1["cirurgia_index"] + steps, len(CIRURGIA_TOPICS))
+        if b1["cirurgia_index"] >= len(CIRURGIA_TOPICS):
+            b1["current_specialty"] = "clinica"
+    elif block == "block1_clinica":
+        b1["clinica_index"] = min(b1["clinica_index"] + steps, len(CLINICA_TOPICS))
+    elif block == "block2":
+        b2["topic_index"] = min(b2["topic_index"] + steps, len(PSZ_TOPICS))
+    elif block == "block4_derma":
+        b4["derma_index"] = min(b4["derma_index"] + steps, len(DERMA_CLASSES))
+        if b4["derma_index"] >= len(DERMA_CLASSES):
+            b4["current_module"] = "respiratorio"
+    elif block == "block4_resp":
+        b4["resp_index"] = min(b4["resp_index"] + steps, len(RESP_CLASSES))
+        if b4["resp_index"] >= len(RESP_CLASSES):
+            b4["current_module"] = "done"
+
+    save_state(state)
+
+
+def add_to_revision_bank(area: str, topic: str) -> None:
+    state = load_state()
+    bank = state.setdefault("revision_bank", {})
+    topics = bank.setdefault(area, [])
+    if topic not in topics:
+        topics.append(topic)
+    save_state(state)
+
+
+def remove_from_revision_bank(area: str, topic: str) -> None:
+    state = load_state()
+    bank = state.get("revision_bank", {})
+    if area in bank and topic in bank[area]:
+        bank[area].remove(topic)
+        if not bank[area]:
+            del bank[area]
+    save_state(state)

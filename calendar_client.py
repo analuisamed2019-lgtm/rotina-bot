@@ -81,7 +81,7 @@ def delete_event(event_id: str) -> None:
     service.events().delete(calendarId=GOOGLE_CALENDAR_ID, eventId=event_id).execute()
 
 
-def format_events_for_prompt(events: list) -> str:
+def format_events_for_prompt(events: list, full_ids: bool = False) -> str:
     if not events:
         return "Nenhum evento nos próximos dias."
 
@@ -111,6 +111,7 @@ def format_events_for_prompt(events: list) -> str:
 
         desc = event.get("description", "")
         desc_str = f" — {desc[:80]}" if desc else ""
-        lines.append(f"  • {time_str} {summary}{desc_str} [id:{event_id[:8]}]")
+        id_str = event_id if full_ids else event_id[:8]
+        lines.append(f"  • {time_str} {summary}{desc_str} [id:{id_str}]")
 
     return "\n".join(lines)
