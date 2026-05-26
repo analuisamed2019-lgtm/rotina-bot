@@ -202,3 +202,41 @@ def remove_from_revision_bank(area: str, topic: str) -> None:
         if not bank[area]:
             del bank[area]
     save_state(state)
+
+
+# ── Rastreamento de atividades ────────────────────────────────────────────────
+
+ACTIVITY_GOALS = {"academia": 2, "yoga": 3, "estudo": 3}
+
+
+def record_activities(date_str: str, academia: bool, yoga: bool, estudo: bool) -> None:
+    state = load_state()
+    tracking = state.setdefault("activity_tracking", {"days": {}})
+    tracking["days"][date_str] = {
+        "academia": academia,
+        "yoga": yoga,
+        "estudo": estudo,
+    }
+    save_state(state)
+
+
+def get_weekly_summary_data(week_start_date) -> dict:
+    """Retorna contagem de atividades para a semana a partir de week_start_date (date)."""
+    from datetime import timedelta
+    state = load_state()
+    days = state.get("activity_tracking", {}).get("days", {})
+    counts = {"academia": 0, "yoga": 0, "estudo": 0}
+    for i in range(7):
+        d = (week_start_date + timedelta(days=i)).strftime("%Y-%m-%d")
+        if d in days:
+            for activity in counts:
+                if days[d].get(activity):
+                    counts[activity] += 1
+    return counts
+
+
+def get_week_so_far_data(today) -> dict:
+    """Retorna contagem de atividades desde a segunda-feira até hoje."""
+    from datetime import timedelta
+    monday = today - timedelta(days=today.weekday())
+    return get_weekly_summary_data(monday)

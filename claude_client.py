@@ -95,6 +95,20 @@ TOOLS = [
             },
             "required": ["action", "area", "topic"]
         }
+    },
+    {
+        "name": "record_daily_activities",
+        "description": "Registra quais atividades foram realizadas em um dia. Chamar quando a usuária relatar as atividades do dia (após o check-in noturno ou espontaneamente).",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "date": {"type": "string", "description": "Data no formato YYYY-MM-DD"},
+                "academia": {"type": "boolean", "description": "Foi à academia?"},
+                "yoga": {"type": "boolean", "description": "Foi ao yoga?"},
+                "estudo": {"type": "boolean", "description": "Estudou?"}
+            },
+            "required": ["date", "academia", "yoga", "estudo"]
+        }
     }
 ]
 
@@ -237,6 +251,24 @@ def _execute_tool(name: str, inp: dict) -> str:
         else:
             st.remove_from_revision_bank(area, topic)
             return f"'{topic}' removido do banco de revisões."
+
+    elif name == "record_daily_activities":
+        st.record_activities(
+            date_str=inp["date"],
+            academia=inp["academia"],
+            yoga=inp["yoga"],
+            estudo=inp["estudo"],
+        )
+        today = datetime.fromisoformat(inp["date"]).date()
+        counts = st.get_week_so_far_data(today)
+        return (
+            f"Atividades de {inp['date']} registradas: "
+            f"academia={'sim' if inp['academia'] else 'não'}, "
+            f"yoga={'sim' if inp['yoga'] else 'não'}, "
+            f"estudo={'sim' if inp['estudo'] else 'não'}. "
+            f"Semana até agora — academia: {counts['academia']}/2, "
+            f"yoga: {counts['yoga']}/3, estudo: {counts['estudo']}/3."
+        )
 
     else:
         raise ValueError(f"Ferramenta desconhecida: {name}")

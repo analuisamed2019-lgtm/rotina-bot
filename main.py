@@ -14,7 +14,7 @@ from handlers import (
     cmd_start,
     handle_message,
 )
-from scheduler import send_morning_briefing
+from scheduler import send_morning_briefing, send_end_of_day_checkin
 
 logging.basicConfig(
     format="%(asctime)s | %(name)s | %(levelname)s | %(message)s",
@@ -39,6 +39,12 @@ def main():
         send_morning_briefing,
         time=time(5, 0, 0, tzinfo=tz),
         name="morning_briefing",
+    )
+
+    app.job_queue.run_daily(
+        send_end_of_day_checkin,
+        time=time(21, 30, 0, tzinfo=tz),
+        name="end_of_day_checkin",
     )
 
     logger.info(f"Starting webhook on port {PORT} → {WEBHOOK_URL}/webhook")
