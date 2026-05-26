@@ -124,7 +124,7 @@ def get_response(
             messages=history,
         )
 
-        history.append({"role": "assistant", "content": response.content})
+        history.append({"role": "assistant", "content": _serialize_content(response.content)})
 
         if response.stop_reason == "end_turn":
             text = next((b.text for b in response.content if hasattr(b, "text")), "")
@@ -153,6 +153,27 @@ def get_response(
         else:
             text = next((b.text for b in response.content if hasattr(b, "text")), "")
             return text, history
+
+
+def _serialize_content(content) -> list:
+    """Convert Anthropic SDK content blocks to plain dicts for JSON storage."""
+    if isinstance(content, str):
+        return [{"type": "text", "text": content}]
+    result = []
+    for block in content:
+        if hasattr(block, "type"):
+            if block.type == "text":
+                result.append({"type": "text", "text": block.text})
+            elif block.type == "tool_use":
+                result.append({
+                    "type": "tool_use",
+                    "id": block.id,
+                    "name": block.name,
+                    "input": block.input,
+                })
+        else:
+            result.append(block)
+    return result
 
 
 def _execute_tool(name: str, inp: dict) -> str:
