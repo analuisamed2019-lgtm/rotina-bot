@@ -12,6 +12,9 @@ from state import format_state_for_prompt, load_state, update_state
 
 logger = logging.getLogger(__name__)
 
+# Máximo de mensagens no histórico antes de truncar automaticamente
+MAX_HISTORY = 16
+
 
 def _authorized(update: Update) -> bool:
     return update.effective_chat.id == TELEGRAM_CHAT_ID
@@ -29,32 +32,69 @@ def _build_context() -> tuple[str, str, str]:
     )
 
 
+def _clean_history(history: list) -> list:
+    """
+    Garante que o histórico está em formato válido para a API Anthropic.
+    Remove entradas malformadas e trunca se necessário.
+    """
+    clean = []
+    for msg in history:
+        if not isinstance(msg, dict):
+            continue
+        role = msg.get("role")
+        content = msg.get("content")
+        if role not in ("user", "assistant") or content is None:
+            continue
+        clean.append(msg)
+
+    # Trunca mantendo as mensagens mais recentes (sempre número par)
+    if len(clean) > MAX_HISTORY:
+        clean = clean[-MAX_HISTORY:]
+        # Garante que começa com "user"
+        while clean and clean[0].get("role") != "user":
+            clean = clean[1:]
+
+    return clean
+
+
 async def _reply(update: Update, context, text: str, inject_message: str = None):
     state = load_state()
-    state_str, cal_str, dt_str = _build_context()
-    history = state.get("conversation_history", [])
-
+    history = _clean_history(state.get("conversation_history", []))
     user_msg = inject_message or text
 
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action="typing"
     )
 
-    response, updated_history = get_response(
-        user_message=user_msg,
-        conversation_history=history,
-        state_str=state_str,
-        calendar_events=cal_str,
-        current_datetime=dt_str,
-    )
+    try:
+        state_str, cal_str, dt_str = _build_context()
 
-    update_state({"conversation_history": updated_history})
+        response, updated_history = get_response(
+            user_message=user_msg,
+            conversation_history=history,
+            state_str=state_str,
+            calendar_events=cal_str,
+            current_datetime=dt_str,
+        )
 
-    for chunk in _split_message(response):
-        try:
-            await update.message.reply_text(chunk, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(chunk)
+        update_state({"conversation_history": updated_history})
+
+        for chunk in _split_message(response):
+            try:
+                await update.message.reply_text(chunk, parse_mode="Markdown")
+            except Exception:
+                await update.message.reply_text(chunk)
+
+    except Exception as e:
+        logger.error(f"Erro ao processar mensagem: {e}", exc_info=True)
+
+        # Auto-reset do histórico para se recuperar
+        update_state({"conversation_history": []})
+
+        await update.message.reply_text(
+            "Tive um problema interno e resetei o histórico da conversa para me recuperar. "
+            "Pode repetir sua última mensagem?"
+        )
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -62,45 +102,57 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(
         "Olá, Ana Luísa! Sou seu assistente de rotina médica.\n\n"
-        "Comandos disponíveis:\n"
-        "/rotina — planejamento do dia de hoje\n"
+        "Comandos:\n"
+        "/rotina — planejamento do dia\n"
         "/semana — agenda dos próximos 7 dias\n"
-        "/blocos — próximas sessões de estudo\n"
-        "/revisoes — banco de revisões pendentes\n"
-        "/reset — limpar histórico da conversa\n\n"
-        "Ou simplesmente me escreva — posso encaixar compromissos, reagendar, registrar revisões e muito mais."
+        "/blocos — progresso nos estudos\n"
+        "/revisoes — banco de revisões\n"
+        "/reset — limpar histórico\n\n"
+        "Pode me escrever diretamente para encaixar compromissos, reagendar, registrar revisões e mais."
     )
 
 
 async def cmd_rotina(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _authorized(update):
         return
-    await _reply(update, context, "", inject_message="Qual é meu planejamento completo para hoje? Liste horários, compromissos do calendário, blocos de estudo e atividades físicas.")
+    await _reply(
+        update, context, "",
+        inject_message="Qual é meu planejamento completo para hoje? Liste horários, compromissos do calendário, blocos de estudo e atividades físicas."
+    )
 
 
 async def cmd_semana(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _authorized(update):
         return
-    await _reply(update, context, "", inject_message="Mostre minha agenda estruturada para os próximos 7 dias, incluindo dias de trabalho, folga e blocos de estudo programados.")
+    await _reply(
+        update, context, "",
+        inject_message="Mostre minha agenda estruturada para os próximos 7 dias, incluindo dias de trabalho, folga e blocos de estudo."
+    )
 
 
 async def cmd_blocos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _authorized(update):
         return
-    await _reply(update, context, "", inject_message="Mostre meu progresso em todos os blocos de estudo e as próximas sessões programadas para esta semana.")
+    await _reply(
+        update, context, "",
+        inject_message="Mostre meu progresso em todos os blocos de estudo e as próximas sessões programadas."
+    )
 
 
 async def cmd_revisoes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _authorized(update):
         return
-    await _reply(update, context, "", inject_message="Mostre meu banco de revisões completo, agrupado por área.")
+    await _reply(
+        update, context, "",
+        inject_message="Mostre meu banco de revisões completo, agrupado por área."
+    )
 
 
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _authorized(update):
         return
     update_state({"conversation_history": []})
-    await update.message.reply_text("Histórico de conversa resetado.")
+    await update.message.reply_text("Histórico resetado.")
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
