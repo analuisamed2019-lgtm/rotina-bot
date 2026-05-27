@@ -1,4 +1,3 @@
-import io
 import logging
 from datetime import datetime
 
@@ -8,7 +7,7 @@ from telegram.ext import ContextTypes
 
 from calendar_client import format_events_for_prompt, get_events
 from claude_client import get_response
-from config import OPENAI_API_KEY, TELEGRAM_CHAT_ID, TIMEZONE
+from config import TELEGRAM_CHAT_ID, TIMEZONE
 from state import format_state_for_prompt, load_state, update_state
 
 logger = logging.getLogger(__name__)
@@ -161,55 +160,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await _reply(update, context, update.message.text)
 
-
-async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Transcreve mensagem de voz via Whisper e passa pelo pipeline normal."""
-    if not _authorized(update):
-        return
-
-    if not OPENAI_API_KEY:
-        await update.message.reply_text(
-            "Transcrição de áudio não está configurada. "
-            "Adicione OPENAI_API_KEY nas variáveis do Railway para ativar essa função."
-        )
-        return
-
-    await context.bot.send_chat_action(
-        chat_id=update.effective_chat.id, action="typing"
-    )
-
-    try:
-        from openai import OpenAI
-        oai = OpenAI(api_key=OPENAI_API_KEY)
-
-        voice_file = await update.message.voice.get_file()
-        buf = io.BytesIO()
-        await voice_file.download_to_memory(buf)
-        buf.seek(0)
-        buf.name = "audio.ogg"  # Whisper precisa de extensão reconhecível
-
-        transcription = oai.audio.transcriptions.create(
-            model="whisper-1",
-            file=buf,
-            language="pt",
-        )
-        text = transcription.text.strip()
-
-        if not text:
-            await update.message.reply_text("Não consegui entender o áudio. Tente novamente.")
-            return
-
-        # Mostra o que foi entendido antes de processar
-        await update.message.reply_text(f"🎙 _{text}_", parse_mode="Markdown")
-
-        # Processa como se fosse mensagem de texto normal
-        await _reply(update, context, text)
-
-    except Exception as e:
-        logger.error(f"Erro ao transcrever voz: {e}", exc_info=True)
-        await update.message.reply_text(
-            "Não consegui processar o áudio. Tente escrever sua mensagem."
-        )
 
 
 def _split_message(text: str, limit: int = 4000) -> list[str]:
