@@ -13,6 +13,7 @@ from handlers import (
     cmd_semana,
     cmd_start,
     handle_message,
+    handle_voice,
 )
 from scheduler import send_morning_briefing, send_end_of_day_checkin
 
@@ -33,6 +34,7 @@ def main():
     app.add_handler(CommandHandler("revisoes", cmd_revisoes))
     app.add_handler(CommandHandler("reset", cmd_reset))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
     tz = pytz.timezone(TIMEZONE)
     app.job_queue.run_daily(
