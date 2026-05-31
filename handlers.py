@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 
 import pytz
@@ -8,7 +9,67 @@ from telegram.ext import ContextTypes
 from calendar_client import format_events_for_prompt, get_events
 from claude_client import get_response
 from config import TELEGRAM_CHAT_ID, TIMEZONE
-from state import format_state_for_prompt, load_state, update_state
+from state import fmt_brl, format_state_for_prompt, load_state, update_state
+
+# ── Padrões de detecção financeira ───────────────────────────────────────────
+# Detecta: "50", "5,90", "120,90", "1.200,50", "R$ 45,50", "50 reais"
+_EXPENSE_RE = re.compile(
+    r'^\s*(?:R\$\s*)?([\d.,]+)(?:\s*(?:reais?|R\$))?\s*$',
+    re.IGNORECASE,
+)
+
+# Detecta: "fatura 3500", "fatura 3.500", "fatura R$ 3.500,00"
+_INVOICE_RE = re.compile(
+    r'^\s*fatura\s+(?:R\$\s*)?([\d.,]+)',
+    re.IGNORECASE,
+)
+
+
+def _parse_br_number(s: str) -> float:
+    """Converte número brasileiro (1.200,50 ou 3.500) para float."""
+    s = s.strip()
+    if '.' in s and ',' in s:
+        # Formato 1.200,50 → remove ponto (mil), troca vírgula por ponto (decimal)
+        s = s.replace('.', '').replace(',', '.')
+    elif ',' in s:
+        parts = s.split(',')
+        if len(parts) == 2 and len(parts[1]) <= 2:
+            s = s.replace(',', '.')
+        else:
+            s = s.replace(',', '')
+    elif '.' in s:
+        # 3.500 → separador de milhar BR (3 dígitos após o ponto)
+        # 3.50  → decimal americano (manter como está)
+        parts = s.split('.')
+        if len(parts) == 2 and len(parts[1]) == 3:
+            s = s.replace('.', '')   # 3.500 → 3500
+        # else: float() trata como decimal normalmente
+    return float(s)
+
+
+def _parse_expense(text: str) -> float | None:
+    """Retorna valor do gasto se a mensagem for apenas um valor numérico, senão None."""
+    m = _EXPENSE_RE.match(text)
+    if m:
+        try:
+            val = _parse_br_number(m.group(1))
+            # Sanidade: entre R$0,01 e R$50.000
+            if 0.01 <= val <= 50000:
+                return val
+        except ValueError:
+            pass
+    return None
+
+
+def _parse_invoice(text: str) -> float | None:
+    """Retorna valor da fatura se a mensagem começar com 'fatura X', senão None."""
+    m = _INVOICE_RE.match(text)
+    if m:
+        try:
+            return _parse_br_number(m.group(1))
+        except ValueError:
+            pass
+    return None
 
 logger = logging.getLogger(__name__)
 
@@ -107,8 +168,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/semana — agenda dos próximos 7 dias\n"
         "/blocos — progresso nos estudos\n"
         "/revisoes — banco de revisões\n"
+        "/mes — resumo mensal de atividades\n"
+        "/gastos — controle financeiro do ciclo\n"
         "/reset — limpar histórico\n\n"
-        "Pode me escrever diretamente para encaixar compromissos, reagendar, registrar revisões e mais."
+        "Envie um valor (ex: 50 ou 120,90) para registrar gasto.\n"
+        "Envie 'fatura 3500' para definir a fatura do cartão.\n"
+        "Pode me escrever diretamente para encaixar compromissos, reagendar e mais."
     )
 
 
@@ -199,10 +264,98 @@ async def cmd_mes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg)
 
 
+async def cmd_gastos(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mostra o resumo financeiro do ciclo atual."""
+    if not _authorized(update):
+        return
+    from state import get_financial_summary
+    s = get_financial_summary()
+    msg = _format_financial_summary(s, verbose=True)
+    await update.message.reply_text(msg)
+
+
+def _format_financial_summary(s: dict, verbose: bool = False) -> str:
+    """Formata o resumo financeiro para exibição no Telegram."""
+    lines = [
+        f"💸 *Controle Financeiro* — ciclo desde {s['cycle_start']}",
+        f"",
+        f"💳 Fatura: {fmt_brl(s['invoice'])}",
+        f"🟢 Budget livre: {fmt_brl(s['available_free'])}",
+        f"📊 Gasto no ciclo: {fmt_brl(s['total_cycle'])} ({s['pct_used']}%)",
+        f"",
+    ]
+    if s["is_negative"]:
+        deficit = abs(s["remaining"])
+        pct_deficit = round(deficit / s["available_free"] * 100) if s["available_free"] > 0 else 0
+        if pct_deficit < 10:
+            lines.append(f"⚠️ Limite estourado em {fmt_brl(deficit)} — atenção!")
+        elif pct_deficit < 25:
+            lines.append(f"🚨 Limite estourado em {fmt_brl(deficit)}! Hora de segurar os gastos.")
+        else:
+            lines.append(f"🆘 SÉRIO: {fmt_brl(deficit)} acima do limite — precisa cortar urgentemente.")
+    else:
+        pct_remaining = 100 - s["pct_used"]
+        lines.append(f"✅ Disponível: {fmt_brl(s['remaining'])} ({pct_remaining}% restante)")
+
+    if verbose and s["yesterday_total"] > 0:
+        lines.append(f"")
+        lines.append(f"📅 Ontem: {fmt_brl(s['yesterday_total'])}")
+
+    return "\n".join(lines)
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _authorized(update):
         return
-    await _reply(update, context, update.message.text)
+    text = update.message.text.strip()
+
+    # ── Detecta "fatura X" ────────────────────────────────────────────────────
+    invoice_amount = _parse_invoice(text)
+    if invoice_amount is not None:
+        from state import get_financial_summary, set_invoice
+        set_invoice(invoice_amount)
+        s = get_financial_summary()
+        msg = (
+            f"✅ Fatura registrada: {fmt_brl(invoice_amount)}\n"
+            f"Budget livre este ciclo: {fmt_brl(s['available_free'])}\n"
+            f"_(Limite {fmt_brl(s['limit'])} − Fatura {fmt_brl(invoice_amount)})_"
+        )
+        try:
+            await update.message.reply_text(msg, parse_mode="Markdown")
+        except Exception:
+            await update.message.reply_text(msg)
+        return
+
+    # ── Detecta gasto direto (ex: "50", "120,90", "R$ 45") ────────────────────
+    expense_amount = _parse_expense(text)
+    if expense_amount is not None:
+        from state import record_expense
+        s = record_expense(expense_amount)
+        if s["is_negative"]:
+            deficit = abs(s["remaining"])
+            pct_deficit = round(deficit / s["available_free"] * 100) if s["available_free"] > 0 else 0
+            if pct_deficit < 10:
+                warning = f"⚠️ Limite estourado em {fmt_brl(deficit)} — atenção!"
+            elif pct_deficit < 25:
+                warning = f"🚨 {fmt_brl(deficit)} acima do limite! Segura os gastos."
+            else:
+                warning = f"🆘 SÉRIO: {fmt_brl(deficit)} acima do limite — cortar urgente!"
+            msg = (
+                f"💸 {fmt_brl(expense_amount)} registrado\n"
+                f"Total ciclo: {fmt_brl(s['total_cycle'])} ({s['pct_used']}%)\n"
+                f"{warning}"
+            )
+        else:
+            pct_remaining = 100 - s["pct_used"]
+            msg = (
+                f"💸 {fmt_brl(expense_amount)} registrado\n"
+                f"Total ciclo: {fmt_brl(s['total_cycle'])} ({s['pct_used']}%)\n"
+                f"✅ Disponível: {fmt_brl(s['remaining'])} ({pct_remaining}% restante)"
+            )
+        await update.message.reply_text(msg)
+        return
+
+    await _reply(update, context, text)
 
 
 

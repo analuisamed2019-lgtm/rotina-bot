@@ -26,7 +26,13 @@ DEFAULT_STATE = {
     },
     "weekly_schedule": {},
     "revision_bank": {},
-    "conversation_history": []
+    "conversation_history": [],
+    "finances": {
+        "monthly_limit": 10000.0,
+        "current_invoice": 0.0,
+        "expenses": {},          # {"2026-05-15": [{"amount": 50.0, "note": ""}, ...]}
+        "invoice_history": {},   # {"2026-05": 3500.0}
+    }
 }
 
 CIRURGIA_TOPICS = [
@@ -137,13 +143,25 @@ def format_state_for_prompt(state: dict) -> str:
     weekly = state.get("weekly_schedule", {})
     weekly_str = json.dumps(weekly, ensure_ascii=False) if weekly else "{}"
 
+    # Financial summary
+    fin_summary = get_financial_summary_from_state(state)
+    fin_str = (
+        f"Limite: {fmt_brl(fin_summary['limit'])} | "
+        f"Fatura: {fmt_brl(fin_summary['invoice'])} | "
+        f"Budget livre: {fmt_brl(fin_summary['available_free'])} | "
+        f"Gasto no ciclo: {fmt_brl(fin_summary['total_cycle'])} ({fin_summary['pct_used']}%) | "
+        f"{'🚨 NEGATIVO' if fin_summary['is_negative'] else 'Disponível'}: {fmt_brl(abs(fin_summary['remaining']))} | "
+        f"Ciclo desde: {fin_summary['cycle_start']}"
+    )
+
     return f"""Bloco 1 próxima sessão: {next_b1}
   (Cirurgia: {ci}/{len(CIRURGIA_TOPICS)} | Clínica: {cli}/{len(CLINICA_TOPICS)})
 Bloco 2 próxima sessão: {next_b2} (índice {b2i}/{len(PSZ_TOPICS)})
 Bloco 4 próximas 2 aulas: {next_b4_1} / {next_b4_2} (módulo: {b4_module})
 Distribuição semanal registrada: {weekly_str}
 Banco de revisões:
-{rev_str}"""
+{rev_str}
+Controle financeiro: {fin_str}"""
 
 
 def _deep_merge(base: dict, updates: dict) -> dict:
@@ -240,6 +258,122 @@ def get_week_so_far_data(today) -> dict:
     from datetime import timedelta
     monday = today - timedelta(days=today.weekday())
     return get_weekly_summary_data(monday)
+
+
+# ── Utilitários de formatação ─────────────────────────────────────────────────
+
+def fmt_brl(amount: float) -> str:
+    """Formata float como moeda brasileira, ex: R$1.200,50"""
+    return "R${:,.2f}".format(amount).replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+# ── Controle financeiro ───────────────────────────────────────────────────────
+
+def get_cycle_start(today=None):
+    """Retorna a data de início do ciclo financeiro atual (dia 28 do mês anterior ou atual)."""
+    from datetime import date
+    if today is None:
+        import pytz
+        from config import TIMEZONE
+        import datetime as _dt
+        tz = pytz.timezone(TIMEZONE)
+        today = _dt.datetime.now(tz).date()
+    if today.day >= 28:
+        return today.replace(day=28)
+    else:
+        if today.month == 1:
+            return today.replace(year=today.year - 1, month=12, day=28)
+        else:
+            return today.replace(month=today.month - 1, day=28)
+
+
+def set_invoice(amount: float) -> None:
+    """Define o valor da fatura do cartão do mês atual."""
+    import pytz
+    import datetime as _dt
+    from config import TIMEZONE
+    state = load_state()
+    fin = state.setdefault("finances", _default_finances())
+    fin["current_invoice"] = amount
+    tz = pytz.timezone(TIMEZONE)
+    month_key = _dt.datetime.now(tz).strftime("%Y-%m")
+    fin.setdefault("invoice_history", {})[month_key] = amount
+    save_state(state)
+
+
+def record_expense(amount: float, note: str = "", date_str: str = None) -> dict:
+    """Registra um gasto e retorna o resumo financeiro atualizado."""
+    import pytz
+    import datetime as _dt
+    from config import TIMEZONE
+    state = load_state()
+    fin = state.setdefault("finances", _default_finances())
+    if date_str is None:
+        tz = pytz.timezone(TIMEZONE)
+        date_str = _dt.datetime.now(tz).strftime("%Y-%m-%d")
+    day_expenses = fin.setdefault("expenses", {}).setdefault(date_str, [])
+    day_expenses.append({"amount": amount, "note": note})
+    save_state(state)
+    return get_financial_summary_from_state(state)
+
+
+def get_financial_summary(today=None) -> dict:
+    """Retorna o resumo financeiro do ciclo atual."""
+    state = load_state()
+    return get_financial_summary_from_state(state, today)
+
+
+def get_financial_summary_from_state(state: dict, today=None) -> dict:
+    import datetime as _dt
+    import pytz
+    from config import TIMEZONE
+    tz = pytz.timezone(TIMEZONE)
+    if today is None:
+        today = _dt.datetime.now(tz).date()
+
+    fin = state.get("finances", _default_finances())
+    limit = fin.get("monthly_limit", 10000.0)
+    invoice = fin.get("current_invoice", 0.0)
+    expenses = fin.get("expenses", {})
+
+    cycle_start = get_cycle_start(today)
+    yesterday = today - _dt.timedelta(days=1)
+
+    total_cycle = 0.0
+    yesterday_total = 0.0
+    d = cycle_start
+    while d <= today:
+        d_str = d.strftime("%Y-%m-%d")
+        day_sum = sum(e["amount"] for e in expenses.get(d_str, []))
+        total_cycle += day_sum
+        if d == yesterday:
+            yesterday_total = day_sum
+        d += _dt.timedelta(days=1)
+
+    available_free = max(limit - invoice, 0.0)
+    remaining = available_free - total_cycle
+    pct_used = round(total_cycle / available_free * 100) if available_free > 0 else 0
+
+    return {
+        "limit": limit,
+        "invoice": invoice,
+        "available_free": available_free,
+        "total_cycle": total_cycle,
+        "remaining": remaining,
+        "pct_used": pct_used,
+        "yesterday_total": yesterday_total,
+        "cycle_start": cycle_start.strftime("%d/%m/%Y"),
+        "is_negative": remaining < 0,
+    }
+
+
+def _default_finances() -> dict:
+    return {
+        "monthly_limit": 10000.0,
+        "current_invoice": 0.0,
+        "expenses": {},
+        "invoice_history": {},
+    }
 
 
 def get_monthly_summary_data(year: int, month: int) -> dict:

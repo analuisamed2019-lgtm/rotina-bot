@@ -7,11 +7,13 @@ from calendar_client import format_events_for_prompt, get_events
 from claude_client import get_response
 from config import TELEGRAM_CHAT_ID, TIMEZONE
 from state import (
+    fmt_brl,
     format_state_for_prompt,
-    load_state,
-    get_weekly_summary_data,
-    get_week_so_far_data,
+    get_financial_summary,
     get_monthly_summary_data,
+    get_week_so_far_data,
+    get_weekly_summary_data,
+    load_state,
     ACTIVITY_GOALS,
 )
 
@@ -65,11 +67,38 @@ async def send_morning_briefing(context):
     except Exception:
         await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=full_message)
 
+    # ── Resumo financeiro ─────────────────────────────────────────────────────
+    try:
+        fin = get_financial_summary(today=now.date())
+        fin_line = (
+            f"💸 Financeiro: Ontem {fmt_brl(fin['yesterday_total'])} | "
+            f"Ciclo {fmt_brl(fin['total_cycle'])} ({fin['pct_used']}%) | "
+        )
+        if fin["is_negative"]:
+            fin_line += f"🚨 Negativo {fmt_brl(abs(fin['remaining']))}"
+        else:
+            fin_line += f"Disponível {fmt_brl(fin['remaining'])}"
+        await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=fin_line)
+    except Exception as e:
+        logger.warning(f"Erro no resumo financeiro: {e}")
+
     # ── Lembrete mensal ───────────────────────────────────────────────────────
     if now.day in MONTHLY_REMINDERS:
         await context.bot.send_message(
             chat_id=TELEGRAM_CHAT_ID,
             text=MONTHLY_REMINDERS[now.day],
+        )
+
+    # ── Pergunta fatura no início do mês ─────────────────────────────────────
+    if now.day == 1:
+        await context.bot.send_message(
+            chat_id=TELEGRAM_CHAT_ID,
+            text=(
+                "💳 Início do mês! Qual é o valor da fatura do cartão este mês?\n"
+                "Responda com: *fatura + valor*\n"
+                "Exemplo: `fatura 3.500`"
+            ),
+            parse_mode="Markdown",
         )
 
     # ── Renovação Railway ─────────────────────────────────────────────────────
