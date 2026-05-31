@@ -7,6 +7,7 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from config import PORT, TELEGRAM_BOT_TOKEN, TIMEZONE, WEBHOOK_URL
 from handlers import (
     cmd_blocos,
+    cmd_mes,
     cmd_reset,
     cmd_revisoes,
     cmd_rotina,
@@ -32,6 +33,7 @@ def main():
     app.add_handler(CommandHandler("blocos", cmd_blocos))
     app.add_handler(CommandHandler("revisoes", cmd_revisoes))
     app.add_handler(CommandHandler("reset", cmd_reset))
+    app.add_handler(CommandHandler("mes", cmd_mes))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     tz = pytz.timezone(TIMEZONE)

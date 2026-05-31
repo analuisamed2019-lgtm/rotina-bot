@@ -11,6 +11,7 @@ from state import (
     load_state,
     get_weekly_summary_data,
     get_week_so_far_data,
+    get_monthly_summary_data,
     ACTIVITY_GOALS,
 )
 
@@ -86,6 +87,13 @@ async def send_morning_briefing(context):
         counts = get_weekly_summary_data(monday)
         await _send_weekly_summary(context, counts, monday, now.date())
 
+    # ── Resumo mensal (último dia do mês) ─────────────────────────────────────
+    import calendar as cal_mod
+    last_day = cal_mod.monthrange(now.year, now.month)[1]
+    if now.day == last_day:
+        m_counts = get_monthly_summary_data(now.year, now.month)
+        await _send_monthly_summary(context, m_counts, now.year, now.month)
+
 
 async def send_end_of_day_checkin(context):
     """Enviado às 21h30 — pergunta quais atividades foram feitas hoje."""
@@ -112,6 +120,57 @@ async def send_end_of_day_checkin(context):
         f"Responda com as atividades: academia, yoga, estudo — ou diga o que não conseguiu fazer.\n\n"
         f"Semana até agora:\n{parcial}"
     )
+
+    await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
+
+
+async def _send_monthly_summary(context, counts: dict, year: int, month: int):
+    import calendar as cal_mod
+    month_name = [
+        "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ][month]
+    days_in_month = cal_mod.monthrange(year, month)[1]
+    registered = counts["dias_registrados"]
+
+    def pct(count, goal_per_week=None, total_possible=None):
+        if total_possible and total_possible > 0:
+            p = round(count / total_possible * 100)
+            return f"{count}/{total_possible} dias ({p}%)"
+        return f"{count} dia(s)"
+
+    # Metas mensais: academia 2×/semana ~8 dias, yoga 3×/semana ~12 dias, estudo 3×/semana ~12 dias
+    weeks_in_month = days_in_month / 7
+    goal_academia = round(ACTIVITY_GOALS["academia"] * weeks_in_month)
+    goal_yoga     = round(ACTIVITY_GOALS["yoga"]     * weeks_in_month)
+    goal_estudo   = round(ACTIVITY_GOALS["estudo"]   * weeks_in_month)
+
+    def bar_monthly(count, goal):
+        p = round(count / goal * 100) if goal > 0 else 0
+        status = "✅" if count >= goal else ("🔶" if p >= 70 else "❌")
+        return f"{status} {count}/{goal} dias ({p}%)"
+
+    msg = (
+        f"📅 Resumo de {month_name}/{year}\n"
+        f"Dias registrados: {registered}/{days_in_month}\n\n"
+        f"🏋️ Academia:  {bar_monthly(counts['academia'], goal_academia)}\n"
+        f"🧘 Yoga:      {bar_monthly(counts['yoga'], goal_yoga)}\n"
+        f"📚 Estudo:    {bar_monthly(counts['estudo'], goal_estudo)}\n"
+    )
+
+    total_goals = sum(1 for a, g in [
+        ("academia", goal_academia), ("yoga", goal_yoga), ("estudo", goal_estudo)
+    ] if counts[a] >= g)
+
+    if registered < days_in_month // 2:
+        msg += f"\n⚠️ Poucos dias registrados ({registered}/{days_in_month}) — os dados podem estar incompletos."
+
+    if total_goals == 3:
+        msg += "\n\nMês completo — todas as metas batidas! 🎉"
+    elif total_goals == 2:
+        msg += "\n\nQuase lá — 2 de 3 metas mensais batidas."
+    else:
+        msg += "\n\nMês difícil — mas o próximo começa do zero. 💪"
 
     await context.bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=msg)
 

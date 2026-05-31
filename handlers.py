@@ -155,6 +155,50 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Histórico resetado.")
 
 
+async def cmd_mes(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mostra o resumo de atividades do mês atual."""
+    if not _authorized(update):
+        return
+    from state import get_monthly_summary_data, ACTIVITY_GOALS
+    import calendar as cal_mod
+
+    tz = pytz.timezone(TIMEZONE)
+    now = datetime.now(tz)
+    counts = get_monthly_summary_data(now.year, now.month)
+    days_in_month = cal_mod.monthrange(now.year, now.month)[1]
+    month_name = [
+        "", "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+    ][now.month]
+
+    weeks_in_month = days_in_month / 7
+    goal_academia = round(ACTIVITY_GOALS["academia"] * weeks_in_month)
+    goal_yoga     = round(ACTIVITY_GOALS["yoga"]     * weeks_in_month)
+    goal_estudo   = round(ACTIVITY_GOALS["estudo"]   * weeks_in_month)
+
+    def bar(count, goal):
+        p = round(count / goal * 100) if goal > 0 else 0
+        status = "✅" if count >= goal else ("🔶" if p >= 70 else "❌")
+        return f"{status} {count}/{goal} dias ({p}%)"
+
+    registered = counts["dias_registrados"]
+    days_so_far = now.day
+
+    msg = (
+        f"📅 {month_name}/{now.year} — até dia {now.day}\n"
+        f"Dias com check-in: {registered}/{days_so_far}\n\n"
+        f"🏋️ Academia:  {bar(counts['academia'], goal_academia)}\n"
+        f"🧘 Yoga:      {bar(counts['yoga'], goal_yoga)}\n"
+        f"📚 Estudo:    {bar(counts['estudo'], goal_estudo)}\n\n"
+        f"Meta mensal: academia {goal_academia}d · yoga {goal_yoga}d · estudo {goal_estudo}d"
+    )
+
+    if registered < days_so_far // 2:
+        msg += f"\n\n⚠️ Poucos dias com check-in registrado — ative o check-in noturno para dados mais precisos."
+
+    await update.message.reply_text(msg)
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _authorized(update):
         return

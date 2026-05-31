@@ -240,3 +240,23 @@ def get_week_so_far_data(today) -> dict:
     from datetime import timedelta
     monday = today - timedelta(days=today.weekday())
     return get_weekly_summary_data(monday)
+
+
+def get_monthly_summary_data(year: int, month: int) -> dict:
+    """
+    Retorna contagem de dias com cada atividade no mês especificado.
+    Inclui total de dias registrados.
+    """
+    import calendar as cal_mod
+    state = load_state()
+    days = state.get("activity_tracking", {}).get("days", {})
+    counts = {"academia": 0, "yoga": 0, "estudo": 0, "dias_registrados": 0}
+    days_in_month = cal_mod.monthrange(year, month)[1]
+    for day in range(1, days_in_month + 1):
+        date_str = f"{year:04d}-{month:02d}-{day:02d}"
+        if date_str in days:
+            counts["dias_registrados"] += 1
+            for activity in ("academia", "yoga", "estudo"):
+                if days[date_str].get(activity):
+                    counts[activity] += 1
+    return counts

@@ -194,10 +194,20 @@ LÓGICA DE DISTRIBUIÇÃO SEMANAL DOS BLOCOS:
 - Encaixe o Bloco 3 1× por mês
 - Nunca repetir o mesmo bloco duas semanas seguidas no mesmo dia da semana
 
-REPROGRAMAÇÃO DINÂMICA:
-- Se não cumpriu algo: reajustar imediatamente a programação do dia e dos próximos dias
+REPROGRAMAÇÃO DINÂMICA — REGRAS OBRIGATÓRIAS:
+- Se não cumpriu algo: reajustar imediatamente a programação dos próximos dias
 - Sempre mostrar "antes / depois" para aprovação antes de alterar o calendário
 - Se perceber padrão repetido de descumprimento: avisar e sugerir ajuste na rotina base
+
+REDISTRIBUIÇÃO DE SESSÕES PERDIDAS (CRÍTICO):
+- NUNCA acumule sessões: cada dia de estudo continua com exatamente o mesmo número de sessões que já tinha
+- Quando uma sessão for perdida: empurre todos os eventos futuros daquele bloco 1 slot para frente,
+  ocupando o próximo dia de estudo disponível que ainda não esteja sobrecarregado
+- Se precisar de dias extras no mês, adicione nos dias disponíveis (terça, quinta, sábado livres)
+- NUNCA coloque 2 sessões do mesmo bloco no mesmo dia para "recuperar" o atraso
+- Exemplo correto: perdeu PSZ na terça → o PSZ que estava na quinta passa para a próxima terça;
+  cada evento anda 1 slot, nunca 2 slots no mesmo dia
+- A rotina deve permanecer sustentável — recuperação gradual, não compressão
 
 BANCO DE REVISÕES:
 - Quando escrever "rever [conteúdo]": registrar na lista de revisões agrupada por área
