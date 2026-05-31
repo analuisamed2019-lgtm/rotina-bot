@@ -174,6 +174,8 @@ BLOCO 3 — CURSO EMERGÊNCIA USP:
 - Duração: 4 horas contínuas
 - Material disponibilizado no início do mês
 - No início de cada mês, perguntar: "Qual dia você prefere para o Bloco 3 — Emergência USP este mês?"
+- REGRA ABSOLUTA: no dia do Curso USP, NÃO há nenhum outro bloco de estudo.
+  O dia é dedicado exclusivamente às 4h do USP. Jamais agendar Bloco 1, 2 ou 4 no mesmo dia.
 
 ──────────────────────────────────────────
 BLOCO 4 — CURSO EMERGENCINSTA (2 aulas por dia de estudo, com intervalo entre elas)
