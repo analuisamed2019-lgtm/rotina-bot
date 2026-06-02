@@ -9,7 +9,26 @@ from telegram.ext import ContextTypes
 from calendar_client import format_events_for_prompt, get_events
 from claude_client import get_response
 from config import TELEGRAM_CHAT_ID, TIMEZONE
-from state import fmt_brl, format_state_for_prompt, load_state, update_state
+from state import (
+    fmt_brl,
+    format_state_for_prompt,
+    get_active_gym_session,
+    get_gym_progression,
+    get_last_gym_session,
+    GYM_PLANS,
+    finish_gym_session,
+    load_state,
+    record_exercise_load,
+    start_gym_session,
+    update_state,
+)
+
+# ── Padrão de carga de exercício ─────────────────────────────────────────────
+# Detecta: "1 15", "1 15kg", "1 - 15", "1: 15,5", "3 20.5kg"
+_LOAD_RE = re.compile(
+    r'^(\d{1,2})\s*[-:\s]+\s*([\d.,]+)\s*(?:kg)?\s*$',
+    re.IGNORECASE,
+)
 
 # ── Padrão de acordar tarde ──────────────────────────────────────────────────
 # Detecta: "acordei 9am", "acordei às 9h", "acordei 9:30", "acordei 10h30"
@@ -54,7 +73,7 @@ def _parse_br_number(s: str) -> float:
     return float(s)
 
 
-def _parse_expense(text: str) -> float | None:
+def _parse_expense(text: str) -> float:
     """Retorna valor do gasto se a mensagem for apenas um valor numérico, senão None."""
     m = _EXPENSE_RE.match(text)
     if m:
@@ -68,7 +87,7 @@ def _parse_expense(text: str) -> float | None:
     return None
 
 
-def _parse_invoice(text: str) -> float | None:
+def _parse_invoice(text: str) -> float:
     """Retorna valor da fatura se a mensagem começar com 'fatura X', senão None."""
     m = _INVOICE_RE.match(text)
     if m:
@@ -179,7 +198,11 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/gastos — controle financeiro do ciclo\n"
         "/reset — limpar histórico\n\n"
         "Envie um valor (ex: 50 ou 120,90) para registrar gasto.\n"
-        "Envie 'fatura 3500' para definir a fatura do cartão.\n"
+        "Envie 'fatura 3500' para definir a fatura do cartão.\n\n"
+        "🏋️ Academia:\n"
+        "/treino — exercícios do dia (A ou B)\n"
+        "/fimtreino — resumo de cargas\n"
+        "/progressao A ou B — histórico de progressão\n\n"
         "Pode me escrever diretamente para encaixar compromissos, reagendar e mais."
     )
 
@@ -275,6 +298,146 @@ async def cmd_mes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"\n\n⚠️ Poucos dias com check-in registrado — ative o check-in noturno para dados mais precisos."
 
     await update.message.reply_text(msg)
+
+
+def _fmt_kg(w: float) -> str:
+    """Formata peso: 15 → '15kg', 12.5 → '12,5kg'"""
+    if w == int(w):
+        return f"{int(w)}kg"
+    return f"{w:.1f}kg".replace(".", ",")
+
+
+def _fmt_progression(current: float, prev) -> str:
+    if prev is None:
+        return ""
+    diff = current - prev
+    if diff > 0:
+        return f" ↑ +{_fmt_kg(diff)}"
+    elif diff < 0:
+        return f" ↓ -{_fmt_kg(abs(diff))}"
+    return " ="
+
+
+async def cmd_treino(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mostra o treino do dia (A ou B) com exercícios numerados."""
+    if not _authorized(update):
+        return
+
+    state = load_state()
+    gym = state.get("gym", {})
+    plan = gym.get("current_plan", "A")
+    exercises = GYM_PLANS[plan]
+    last = get_last_gym_session(plan)
+
+    session = start_gym_session(plan)
+
+    lines = [f"🏋️ *Treino {plan}* — {session['date']}\n"]
+    for i, ex in enumerate(exercises, 1):
+        last_load = ""
+        if last and str(i) in last.get("loads", {}):
+            last_load = f"  _(último: {_fmt_kg(last['loads'][str(i)])})_"
+        lines.append(f"{i}. *{ex['name']}*{last_load}")
+        lines.append(f"   {ex['sets']}")
+
+    lines.append("\n📝 Após cada exercício, manda o número + carga:")
+    lines.append("`1 15kg`  ou  `1 - 15`  ou  `1: 12,5`")
+    lines.append("\n/fimtreino para ver o resumo completo.")
+
+    try:
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    except Exception:
+        await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_fimtreino(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Finaliza o treino ativo e mostra resumo de cargas com progressão."""
+    if not _authorized(update):
+        return
+
+    active = get_active_gym_session()
+    if not active:
+        await update.message.reply_text(
+            "Nenhum treino ativo no momento. Use /treino para começar."
+        )
+        return
+
+    session, prev = finish_gym_session()
+    plan = session["plan"]
+    exercises = GYM_PLANS[plan]
+    loads = session.get("loads", {})
+    next_plan = "B" if plan == "A" else "A"
+
+    lines = [f"📊 *Resumo — Treino {plan}* ({session['date']})\n"]
+    registered = 0
+    for i, ex in enumerate(exercises, 1):
+        key = str(i)
+        if key in loads:
+            w = loads[key]
+            prev_w = prev["loads"].get(key) if prev else None
+            prog = _fmt_progression(w, prev_w)
+            lines.append(f"{i}. {ex['name']}: *{_fmt_kg(w)}*{prog}")
+            registered += 1
+        else:
+            lines.append(f"{i}. {ex['name']}: —")
+
+    lines.append(f"\n✅ {registered}/{len(exercises)} exercícios registrados")
+    lines.append(f"Próximo treino: *Treino {next_plan}*")
+
+    if not prev:
+        lines.append("\n_(Primeiro treino registrado — progressão disponível a partir do próximo)_")
+
+    try:
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    except Exception:
+        await update.message.reply_text("\n".join(lines))
+
+
+async def cmd_progressao(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Mostra a progressão histórica de cargas por exercício."""
+    if not _authorized(update):
+        return
+
+    args = context.args
+    plan = (args[0].upper() if args else None)
+    if plan not in ("A", "B"):
+        await update.message.reply_text(
+            "Uso: `/progressao A` ou `/progressao B`", parse_mode="Markdown"
+        )
+        return
+
+    sessions = get_gym_progression(plan)
+    if not sessions:
+        await update.message.reply_text(f"Nenhum treino {plan} registrado ainda.")
+        return
+
+    exercises = GYM_PLANS[plan]
+    lines = [f"📈 *Progressão — Treino {plan}*\n"]
+
+    for i, ex in enumerate(exercises, 1):
+        key = str(i)
+        history = []
+        for s in sessions:
+            if key in s.get("loads", {}):
+                history.append((s["date"][5:], s["loads"][key]))  # MM-DD, kg
+        if not history:
+            lines.append(f"{i}. {ex['name']}: sem dados")
+            continue
+        # Linha de histórico resumida
+        hist_str = " → ".join(f"{_fmt_kg(w)}" for _, w in history[-5:])  # últimos 5
+        trend = ""
+        if len(history) >= 2:
+            diff = history[-1][1] - history[0][1]
+            if diff > 0:
+                trend = f" _(+{_fmt_kg(diff)} total)_"
+            elif diff < 0:
+                trend = f" _(-{_fmt_kg(abs(diff))} total)_"
+        lines.append(f"{i}. *{ex['name']}*{trend}")
+        lines.append(f"   {hist_str}")
+
+    try:
+        await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
+    except Exception:
+        await update.message.reply_text("\n".join(lines))
 
 
 async def cmd_setbloco(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -444,6 +607,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         await update.message.reply_text(msg)
         return
+
+    # ── Detecta carga de exercício (ex: "1 15kg", "3 - 20") ──────────────────
+    load_match = _LOAD_RE.match(text)
+    if load_match:
+        active = get_active_gym_session()
+        if active:
+            ex_num = int(load_match.group(1))
+            plan = active["plan"]
+            exercises = GYM_PLANS[plan]
+            if 1 <= ex_num <= len(exercises):
+                try:
+                    weight = _parse_br_number(load_match.group(2))
+                except ValueError:
+                    weight = None
+                if weight and weight > 0:
+                    record_exercise_load(ex_num, weight)
+                    ex_name = exercises[ex_num - 1]["name"]
+                    last = get_last_gym_session(plan)
+                    prev_w = last["loads"].get(str(ex_num)) if last else None
+                    prog = _fmt_progression(weight, prev_w)
+                    msg = f"✅ {ex_num}. {ex_name}: *{_fmt_kg(weight)}*{prog}"
+                    try:
+                        await update.message.reply_text(msg, parse_mode="Markdown")
+                    except Exception:
+                        await update.message.reply_text(msg)
+                    return
 
     # ── Detecta "acordei Xh" e recalcula o dia ───────────────────────────────
     wakeup_match = _WAKEUP_RE.search(text)

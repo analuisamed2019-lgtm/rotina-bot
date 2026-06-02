@@ -30,8 +30,13 @@ DEFAULT_STATE = {
     "finances": {
         "monthly_limit": 10000.0,
         "current_invoice": 0.0,
-        "expenses": {},          # {"2026-05-15": [{"amount": 50.0, "note": ""}, ...]}
-        "invoice_history": {},   # {"2026-05": 3500.0}
+        "expenses": {},
+        "invoice_history": {},
+    },
+    "gym": {
+        "current_plan": "A",
+        "active_session": None,
+        "history": [],
     }
 }
 
@@ -258,6 +263,102 @@ def get_week_so_far_data(today) -> dict:
     from datetime import timedelta
     monday = today - timedelta(days=today.weekday())
     return get_weekly_summary_data(monday)
+
+
+# ── Planos de treino ─────────────────────────────────────────────────────────
+
+GYM_PLANS = {
+    "A": [
+        {"name": "Leg Press 90°",                  "sets": "3x (15→12→10)"},
+        {"name": "Cadeira Extensora",               "sets": "3x (15→12→10)"},
+        {"name": "Remada Baixa com Haste V",        "sets": "3x (15→12→10)"},
+        {"name": "Tríceps Corda",                   "sets": "3x (15→12→10)"},
+        {"name": "Elevação Quadril com Peso Livre", "sets": "3x (15→12→10)"},
+        {"name": "Pullover no Chão",                "sets": "3x (15→12→10)"},
+        {"name": "Panturrilha",                     "sets": "3x máximo"},
+    ],
+    "B": [
+        {"name": "Cadeira Flexora",                   "sets": "3x (15→12→10)"},
+        {"name": "Abdução de Quadril",                "sets": "3x (15→12→10)"},
+        {"name": "Supino no Aparelho",                "sets": "3x (15→12→10)"},
+        {"name": "Desenvolvimento Máquina",           "sets": "3x (15→12→10)"},
+        {"name": "Abdução Concha com Miniband",       "sets": "3x (15→12→10)"},
+        {"name": "Puxar Elástico na Linha do Peito",  "sets": "3x (15→12→10)"},
+        {"name": "Sit Up com Pés Apoiados",           "sets": "3x10"},
+    ],
+}
+
+
+def _default_gym() -> dict:
+    return {"current_plan": "A", "active_session": None, "history": []}
+
+
+def start_gym_session(plan: str = None) -> dict:
+    """Inicia sessão de treino. Retorna a sessão criada."""
+    import pytz, datetime as _dt
+    from config import TIMEZONE
+    state = load_state()
+    gym = state.setdefault("gym", _default_gym())
+    if plan is None:
+        plan = gym.get("current_plan", "A")
+    date_str = _dt.datetime.now(pytz.timezone(TIMEZONE)).strftime("%Y-%m-%d")
+    session = {"date": date_str, "plan": plan, "loads": {}, "completed": False}
+    gym["active_session"] = session
+    save_state(state)
+    return session
+
+
+def get_active_gym_session() -> dict:
+    return load_state().get("gym", {}).get("active_session")
+
+
+def record_exercise_load(exercise_num: int, weight: float) -> str:
+    """Registra carga de um exercício. Retorna nome do exercício."""
+    state = load_state()
+    gym = state.setdefault("gym", _default_gym())
+    session = gym.get("active_session")
+    if not session:
+        return None
+    session["loads"][str(exercise_num)] = weight
+    gym["active_session"] = session
+    save_state(state)
+    return GYM_PLANS[session["plan"]][exercise_num - 1]["name"]
+
+
+def finish_gym_session() -> tuple:
+    """Finaliza sessão ativa. Retorna (sessão_concluída, sessão_anterior_do_mesmo_plano)."""
+    state = load_state()
+    gym = state.setdefault("gym", _default_gym())
+    session = gym.get("active_session")
+    if not session:
+        return None, None
+    # Pega sessão anterior ANTES de salvar a atual
+    prev = _get_prev_session(gym, session["plan"])
+    session["completed"] = True
+    gym.setdefault("history", []).append(session)
+    gym["active_session"] = None
+    gym["current_plan"] = "B" if session["plan"] == "A" else "A"
+    save_state(state)
+    return session, prev
+
+
+def get_last_gym_session(plan: str) -> dict:
+    """Retorna a última sessão concluída de um plano."""
+    gym = load_state().get("gym", _default_gym())
+    return _get_prev_session(gym, plan)
+
+
+def _get_prev_session(gym: dict, plan: str) -> dict:
+    for s in reversed(gym.get("history", [])):
+        if s.get("plan") == plan and s.get("completed"):
+            return s
+    return None
+
+
+def get_gym_progression(plan: str) -> list:
+    """Retorna histórico de cargas de todas as sessões de um plano."""
+    gym = load_state().get("gym", _default_gym())
+    return [s for s in gym.get("history", []) if s.get("plan") == plan and s.get("completed")]
 
 
 # ── Utilitários de formatação ─────────────────────────────────────────────────

@@ -7,14 +7,17 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from config import PORT, TELEGRAM_BOT_TOKEN, TIMEZONE, WEBHOOK_URL
 from handlers import (
     cmd_blocos,
+    cmd_fimtreino,
     cmd_gastos,
     cmd_mes,
+    cmd_progressao,
     cmd_reset,
     cmd_revisoes,
     cmd_rotina,
     cmd_semana,
     cmd_setbloco,
     cmd_start,
+    cmd_treino,
     handle_message,
 )
 from scheduler import send_morning_briefing, send_end_of_day_checkin
@@ -38,6 +41,9 @@ def main():
     app.add_handler(CommandHandler("mes", cmd_mes))
     app.add_handler(CommandHandler("gastos", cmd_gastos))
     app.add_handler(CommandHandler("setbloco", cmd_setbloco))
+    app.add_handler(CommandHandler("treino", cmd_treino))
+    app.add_handler(CommandHandler("fimtreino", cmd_fimtreino))
+    app.add_handler(CommandHandler("progressao", cmd_progressao))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     tz = pytz.timezone(TIMEZONE)
