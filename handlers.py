@@ -264,6 +264,83 @@ async def cmd_mes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(msg)
 
 
+async def cmd_setbloco(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Corrige o índice de um bloco de estudo diretamente.
+    Uso: /setbloco block1_cirurgia 1
+    Blocos válidos: block1_cirurgia, block1_clinica, block2, block4_derma, block4_resp
+    """
+    if not _authorized(update):
+        return
+    args = context.args
+    if not args or len(args) < 2:
+        await update.message.reply_text(
+            "Uso: `/setbloco <bloco> <índice>`\n\n"
+            "Blocos:\n"
+            "• `block1_cirurgia` — Cirurgia Geral (0–21)\n"
+            "• `block1_clinica` — Clínica Médica (0–32)\n"
+            "• `block2` — PSZ (0–21)\n"
+            "• `block4_derma` — Emergencinsta Derma (0–3)\n"
+            "• `block4_resp` — Emergencinsta Resp (0–4)",
+            parse_mode="Markdown"
+        )
+        return
+
+    bloco = args[0].lower()
+    try:
+        idx = int(args[1])
+    except ValueError:
+        await update.message.reply_text("O índice precisa ser um número inteiro.")
+        return
+
+    valid = {
+        "block1_cirurgia": ("block1", "cirurgia_index", 22),
+        "block1_clinica":  ("block1", "clinica_index",  33),
+        "block2":          ("block2", "topic_index",    22),
+        "block4_derma":    ("block4", "derma_index",    4),
+        "block4_resp":     ("block4", "resp_index",     5),
+    }
+    if bloco not in valid:
+        await update.message.reply_text(f"Bloco inválido: `{bloco}`", parse_mode="Markdown")
+        return
+
+    group, key, max_idx = valid[bloco]
+    if not (0 <= idx <= max_idx):
+        await update.message.reply_text(f"Índice fora do intervalo (0–{max_idx}).")
+        return
+
+    state = load_state()
+    state["study_blocks"][group][key] = idx
+    update_state({"study_blocks": state["study_blocks"]})
+
+    # Se é cirurgia ou clínica, sincroniza specialty
+    if bloco == "block1_cirurgia" and idx >= 22:
+        state2 = load_state()
+        state2["study_blocks"]["block1"]["current_specialty"] = "clinica"
+        update_state({"study_blocks": state2["study_blocks"]})
+    elif bloco == "block1_clinica":
+        state2 = load_state()
+        state2["study_blocks"]["block1"]["current_specialty"] = "clinica"
+        update_state({"study_blocks": state2["study_blocks"]})
+
+    # Mostra o próximo tema
+    from state import CIRURGIA_TOPICS, CLINICA_TOPICS, PSZ_TOPICS, DERMA_CLASSES, RESP_CLASSES
+    topic_lists = {
+        "block1_cirurgia": CIRURGIA_TOPICS,
+        "block1_clinica":  CLINICA_TOPICS,
+        "block2":          PSZ_TOPICS,
+        "block4_derma":    DERMA_CLASSES,
+        "block4_resp":     RESP_CLASSES,
+    }
+    topics = topic_lists[bloco]
+    next_topic = topics[idx] if idx < len(topics) else "✅ Módulo concluído"
+
+    await update.message.reply_text(
+        f"✅ `{bloco}` ajustado para índice {idx}.\n"
+        f"Próximo tema: *{next_topic}*",
+        parse_mode="Markdown"
+    )
+
+
 async def cmd_gastos(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Mostra o resumo financeiro do ciclo atual."""
     if not _authorized(update):

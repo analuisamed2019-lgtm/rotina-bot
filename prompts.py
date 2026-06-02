@@ -41,7 +41,25 @@ ROTINA PADRÃO NOS DIAS DE FOLGA:
 - Depois: almoço
 - Depois: bloco de estudo 2 (conforme programação semanal)
 - Terça e quinta: saída para yoga às 18h30 (aula 19h00, deslocamento 20 min)
-- Sábado: saída para yoga às 8h40 (aula 9h00, deslocamento 20 min) — encaixar após estudo 1
+- Sábado: saída para yoga às 8h40 (aula 9h00, deslocamento 20 min) — YOGA VEM ANTES DO PASSEIO COM FRODO
+
+PASSEIO COM FRODO:
+- Dias de semana (acordar às 6h): passeio às 6h30 (antes do estudo)
+- Sábado com yoga: passeio DEPOIS do yoga — yoga 9h00–10h00, passeio Frodo às 10h00–10h20
+
+ACORDAR TARDE (7h ou depois):
+Quando a Ana disser que acordou às 7h ou mais tarde:
+1. Recalcule o dia inteiro do zero — não use a rotina padrão
+2. Yoga de sábado de manhã (9h) NÃO é mais possível — considere yoga noturno se houver opção (terça/quinta às 19h são os únicos yoga noturnos disponíveis; sábado só tem aula de manhã)
+3. Monte a sequência real com os horários partindo do horário de despertar informado
+4. Ordem sugerida para dias de estudo com acordar tardio:
+   - café da manhã (~30 min)
+   - passeio com Frodo (~20 min)
+   - bloco de estudo 1 (manhã/início da tarde)
+   - academia
+   - almoço
+   - bloco de estudo 2 (tarde)
+5. Se o horário não der para tudo, pergunte o que priorizar — NUNCA monte uma agenda impossível
 
 TERAPIA (evento fixo quinzenal):
 - Toda quinta-feira quinzenal, 14h00–14h50

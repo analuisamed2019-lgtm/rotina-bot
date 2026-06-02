@@ -13,6 +13,7 @@ from handlers import (
     cmd_revisoes,
     cmd_rotina,
     cmd_semana,
+    cmd_setbloco,
     cmd_start,
     handle_message,
 )
@@ -36,6 +37,7 @@ def main():
     app.add_handler(CommandHandler("reset", cmd_reset))
     app.add_handler(CommandHandler("mes", cmd_mes))
     app.add_handler(CommandHandler("gastos", cmd_gastos))
+    app.add_handler(CommandHandler("setbloco", cmd_setbloco))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     tz = pytz.timezone(TIMEZONE)
