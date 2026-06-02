@@ -43,9 +43,10 @@ ROTINA PADRÃO NOS DIAS DE FOLGA:
 - Terça e quinta: saída para yoga às 18h30 (aula 19h00, deslocamento 20 min)
 - Sábado: saída para yoga às 8h40 (aula 9h00, deslocamento 20 min) — YOGA VEM ANTES DO PASSEIO COM FRODO
 
-PASSEIO COM FRODO:
-- Dias de semana (acordar às 6h): passeio às 6h30 (antes do estudo)
+PASSEIO COM FRODO (terça, quinta e sábado — todos os dias de folga):
+- Terça e quinta (acordar às 6h): passeio às 6h30–6h50, antes do bloco de estudo
 - Sábado com yoga: passeio DEPOIS do yoga — yoga 9h00–10h00, passeio Frodo às 10h00–10h20
+- Sábado sem yoga (acordou tarde etc.): passeio logo depois do café
 
 ACORDAR TARDE (7h ou depois):
 Quando a Ana disser que acordou às 7h ou mais tarde:
