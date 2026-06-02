@@ -25,7 +25,7 @@ RAILWAY_RENEWAL_DATE = date(2026, 6, 25)
 # Lembretes mensais: dia → texto
 MONTHLY_REMINDERS = {
     1:  "💆 Lembrete: hoje é dia de pagar a terapia.",
-    5:  "📋 Lembrete: hoje é dia de realizar a declaração de pagamento da Prevent.",
+    5:  "📋 Lembrete: hoje é dia de realizar a declaração de pagamento da Prevent.\n📊 Lembrete: anotar o valor do salário na planilha.",
     6:  "📱 Lembrete: hoje é dia de pagar a fatura do celular.",
     18: "🏢 Lembrete: hoje é dia de pagar o imposto da Caveo.",
     22: "📊 Lembrete: hoje é dia de fazer seu balanço financeiro mensal.",
