@@ -28,6 +28,7 @@ MONTHLY_REMINDERS = {
     5:  "📋 Lembrete: hoje é dia de realizar a declaração de pagamento da Prevent.",
     6:  "📱 Lembrete: hoje é dia de pagar a fatura do celular.",
     18: "🏢 Lembrete: hoje é dia de pagar o imposto da Caveo.",
+    22: "📊 Lembrete: hoje é dia de fazer seu balanço financeiro mensal.",
     27: "💳 Lembrete: hoje é dia de pagar a fatura do cartão.",
 }
 
