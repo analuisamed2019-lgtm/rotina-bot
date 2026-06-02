@@ -59,12 +59,23 @@ ROTINA PADRÃO NOS DIAS DE FOLGA:
 - Acordar às 6h00
 - 6h00–6h30 café da manhã
 - 6h30–6h50 passeio com o Frodo (20 min)
-- 7h00 bloco de estudo 1 (conforme programação semanal)
-- Depois: academia
+- 7h00 bloco de estudo do dia (~2h) — apenas UM bloco por dia
+- Depois: academia (~1h)
 - Depois: almoço
-- Depois: bloco de estudo 2 (conforme programação semanal)
+- Tempo livre / descanso
 - Terça e quinta: yoga disponível às 7h (saída 6h40) OU às 19h (saída 18h40)
 - Sábado: yoga disponível apenas às 9h (saída 8h40) — sem opção noturna
+
+ESTUDO — REGRA CRÍTICA:
+- Cada dia de estudo tem EXATAMENTE UM bloco de estudo (~2h)
+- Nunca agendar dois blocos diferentes no mesmo dia
+- O bloco do dia é definido pela programação semanal (Bloco 1, 2, 3 ou 4)
+- Duração aproximada por bloco:
+  - Bloco 1 (Residência): ~2h
+  - Bloco 2 (PSZ): ~2h
+  - Bloco 3 (Curso USP): 4h — dia dedicado exclusivamente a isso
+  - Bloco 4 (Emergencinsta): ~2h (2 aulas)
+- Não existe "bloco de estudo 1" e "bloco de estudo 2" no mesmo dia
 
 PASSEIO COM FRODO (terça, quinta e sábado — todos os dias de folga):
 - Terça/quinta com yoga às 7h: saída para yoga às 6h40 → yoga 7h–8h → Frodo 8h–8h20 → estudo
