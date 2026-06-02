@@ -44,9 +44,10 @@ async def send_morning_briefing(context):
 
     response, _ = get_response(
         user_message=(
-            "Gere o planejamento do dia de hoje. "
-            "Inclua: hora de acordar, todos os compromissos do calendário com horários, "
-            "blocos de estudo previstos com os temas, atividades físicas e yoga se houver. "
+            "Monte o planejamento do dia de hoje e crie no Google Calendar todos os eventos "
+            "de rotina que ainda não existirem: ☀️ Acordar, ☕ Café da manhã, 🐾 Passeio com Frodo, "
+            "🚗 Deslocamentos (antes de cada saída de casa), 🍽️ Almoço. "
+            "Inclua também todos os compromissos existentes com horários, blocos de estudo e atividades físicas. "
             "Considere os tempos de deslocamento. Seja direta e use horários específicos. Formato conciso."
         ),
         conversation_history=[],

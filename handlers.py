@@ -189,7 +189,13 @@ async def cmd_rotina(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await _reply(
         update, context, "",
-        inject_message="Qual é meu planejamento completo para hoje? Liste horários, compromissos do calendário, blocos de estudo e atividades físicas."
+        inject_message=(
+            "Monte o planejamento completo de hoje. "
+            "Busque os eventos do calendário, monte a timeline com horários reais "
+            "(acordar, café, Frodo, deslocamentos, compromissos, estudo, academia, almoço) "
+            "e crie no Google Calendar todos os eventos de rotina que ainda não existirem — "
+            "☀️ Acordar, ☕ Café da manhã, 🐾 Passeio com Frodo, 🚗 Deslocamentos, 🍽️ Almoço."
+        )
     )
 
 
@@ -449,9 +455,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Acordei às {wakeup_str}. "
             f"Recalcula meu dia de hoje do zero a partir desse horário. "
             f"Considera: passeio com Frodo, yoga (se ainda der pelo horário — "
-            f"terça/quinta têm aula às 19h como alternativa; sábado só tem 9h), "
+            f"terça/quinta têm aula às 7h ou 19h; sábado só tem 9h), "
             f"academia, blocos de estudo previstos e refeições. "
             f"Monta a timeline completa do dia com horários reais. "
+            f"Cria no Google Calendar todos os eventos de rotina que ainda não existirem "
+            f"(☀️ Acordar, ☕ Café da manhã, 🐾 Passeio com Frodo, 🚗 Deslocamentos, 🍽️ Almoço). "
             f"Se algo não couber, avisa o que fica de fora."
         )
         await _reply(update, context, text, inject_message=inject)
