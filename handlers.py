@@ -11,6 +11,13 @@ from claude_client import get_response
 from config import TELEGRAM_CHAT_ID, TIMEZONE
 from state import fmt_brl, format_state_for_prompt, load_state, update_state
 
+# ── Padrão de acordar tarde ──────────────────────────────────────────────────
+# Detecta: "acordei 9am", "acordei às 9h", "acordei 9:30", "acordei 10h30"
+_WAKEUP_RE = re.compile(
+    r'\bacordei\b.*?(\d{1,2})(?:[h:]\s*(\d{2}))?\s*(?:am|pm|h)?\b',
+    re.IGNORECASE,
+)
+
 # ── Padrões de detecção financeira ───────────────────────────────────────────
 # Detecta: "50", "5,90", "120,90", "1.200,50", "R$ 45,50", "50 reais"
 _EXPENSE_RE = re.compile(
@@ -430,6 +437,24 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ Disponível: {fmt_brl(s['remaining'])} ({pct_remaining}% restante)"
             )
         await update.message.reply_text(msg)
+        return
+
+    # ── Detecta "acordei Xh" e recalcula o dia ───────────────────────────────
+    wakeup_match = _WAKEUP_RE.search(text)
+    if wakeup_match:
+        hour = int(wakeup_match.group(1))
+        minutes = wakeup_match.group(2) or "00"
+        wakeup_str = f"{hour:02d}h{minutes}"
+        inject = (
+            f"Acordei às {wakeup_str}. "
+            f"Recalcula meu dia de hoje do zero a partir desse horário. "
+            f"Considera: passeio com Frodo, yoga (se ainda der pelo horário — "
+            f"terça/quinta têm aula às 19h como alternativa; sábado só tem 9h), "
+            f"academia, blocos de estudo previstos e refeições. "
+            f"Monta a timeline completa do dia com horários reais. "
+            f"Se algo não couber, avisa o que fica de fora."
+        )
+        await _reply(update, context, text, inject_message=inject)
         return
 
     await _reply(update, context, text)
