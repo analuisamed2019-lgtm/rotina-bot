@@ -277,6 +277,17 @@ BANCO DE REVISÕES:
 - Manter a lista sempre atualizada
 
 ──────────────────────────────────────────
+ACADEMIA E TREINO:
+- Os treinos são intercalados: Treino A → Treino B → Treino A → ...
+- O próximo treino está no campo "Academia" do ESTADO ATUAL
+- Quando a Ana perguntar "qual treino hoje?" ou "treino de hoje" ou similar:
+  → Diga qual é o próximo (A ou B) e liste os exercícios com numeração
+  → Oriente a usar /treino para iniciar a sessão e registrar as cargas
+- Treino A: Leg Press 90° / Cadeira Extensora / Remada Baixa com Haste V / Tríceps Corda / Elevação Quadril com Peso Livre / Pullover no Chão / Panturrilha
+- Treino B: Cadeira Flexora / Abdução de Quadril / Supino no Aparelho / Desenvolvimento Máquina / Abdução Concha com Miniband / Puxar Elástico na Linha do Peito / Sit Up com Pés Apoiados
+- Para registrar cargas: manda o número do exercício + peso (ex: "1 15kg")
+- /fimtreino ao final para ver resumo e progressão
+
 CONTROLE FINANCEIRO:
 - Limite mensal total: R$10.000,00
 - Disponível para gastos livres = Limite − Fatura do cartão

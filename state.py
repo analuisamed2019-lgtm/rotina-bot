@@ -159,6 +159,16 @@ def format_state_for_prompt(state: dict) -> str:
         f"Ciclo desde: {fin_summary['cycle_start']}"
     )
 
+    # Gym state
+    gym = state.get("gym", {})
+    next_plan = gym.get("current_plan", "A")
+    active_session = gym.get("active_session")
+    gym_exercises = GYM_PLANS[next_plan]
+    gym_lines = [f"  {i}. {ex['name']} — {ex['sets']}" for i, ex in enumerate(gym_exercises, 1)]
+    gym_str = f"Próximo treino: {'**Treino ' + next_plan + '**'}\n" + "\n".join(gym_lines)
+    if active_session:
+        gym_str += f"\n  (Sessão ativa: Treino {active_session['plan']} em andamento)"
+
     return f"""Bloco 1 próxima sessão: {next_b1}
   (Cirurgia: {ci}/{len(CIRURGIA_TOPICS)} | Clínica: {cli}/{len(CLINICA_TOPICS)})
 Bloco 2 próxima sessão: {next_b2} (índice {b2i}/{len(PSZ_TOPICS)})
@@ -166,7 +176,8 @@ Bloco 4 próximas 2 aulas: {next_b4_1} / {next_b4_2} (módulo: {b4_module})
 Distribuição semanal registrada: {weekly_str}
 Banco de revisões:
 {rev_str}
-Controle financeiro: {fin_str}"""
+Controle financeiro: {fin_str}
+Academia: {gym_str}"""
 
 
 def _deep_merge(base: dict, updates: dict) -> dict:
