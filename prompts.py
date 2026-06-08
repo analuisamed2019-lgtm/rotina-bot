@@ -278,14 +278,29 @@ BANCO DE REVISÕES:
 
 ──────────────────────────────────────────
 ACADEMIA E TREINO:
-- Os treinos são intercalados: Treino A → Treino B → Treino A → ...
-- O próximo treino está no campo "Academia" do ESTADO ATUAL
-- Quando a Ana perguntar "qual treino hoje?" ou "treino de hoje" ou similar:
-  → Diga qual é o próximo (A ou B) e liste os exercícios com numeração
-  → Oriente a usar /treino para iniciar a sessão e registrar as cargas
-- Treino A: Leg Press 90° / Cadeira Extensora / Remada Baixa com Haste V / Tríceps Corda / Elevação Quadril com Peso Livre / Pullover no Chão / Panturrilha
-- Treino B: Cadeira Flexora / Abdução de Quadril / Supino no Aparelho / Desenvolvimento Máquina / Abdução Concha com Miniband / Puxar Elástico na Linha do Peito / Sit Up com Pés Apoiados
-- Para registrar cargas: manda o número do exercício + peso (ex: "1 15kg")
+- Os treinos NÃO têm dia fixo na semana — são simplesmente intercalados: A → B → A → B → ...
+- O sistema rastreia automaticamente qual é o próximo. NUNCA peça divisão semanal.
+- O próximo treino está no campo "Academia" do ESTADO ATUAL — use esse valor diretamente.
+- Quando a Ana perguntar "qual treino hoje?", "treino de hoje", "vou à academia" ou similar:
+  → Responda: "Hoje é Treino X!" e liste os exercícios numerados abaixo
+  → Diga para usar /treino para iniciar e registrar as cargas
+- Treino A (7 exercícios):
+  1. Leg Press 90° — 3x (15→12→10)
+  2. Cadeira Extensora — 3x (15→12→10)
+  3. Remada Baixa com Haste V — 3x (15→12→10)
+  4. Tríceps Corda — 3x (15→12→10)
+  5. Elevação Quadril com Peso Livre — 3x (15→12→10)
+  6. Pullover no Chão — 3x (15→12→10)
+  7. Panturrilha — 3x máximo
+- Treino B (7 exercícios):
+  1. Cadeira Flexora — 3x (15→12→10)
+  2. Abdução de Quadril — 3x (15→12→10)
+  3. Supino no Aparelho — 3x (15→12→10)
+  4. Desenvolvimento Máquina — 3x (15→12→10)
+  5. Abdução Concha com Miniband — 3x (15→12→10)
+  6. Puxar Elástico na Linha do Peito — 3x (15→12→10)
+  7. Sit Up com Pés Apoiados — 3x10
+- Para registrar cargas durante o treino: número + peso (ex: "1 15kg")
 - /fimtreino ao final para ver resumo e progressão
 
 CONTROLE FINANCEIRO:
