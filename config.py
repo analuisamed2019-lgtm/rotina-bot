@@ -10,7 +10,7 @@ ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 
 GOOGLE_CLIENT_ID = os.environ["GOOGLE_CLIENT_ID"]
 GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_CLIENT_SECRET"]
-GOOGLE_REFRESH_TOKEN = os.environ["GOOGLE_REFRESH_TOKEN"].strip()
+GOOGLE_REFRESH_TOKEN = os.environ.get("GCAL_TOKEN", os.environ.get("GOOGLE_REFRESH_TOKEN", "")).strip()
 GOOGLE_CALENDAR_ID = os.environ.get("GOOGLE_CALENDAR_ID", "primary")
 
 WEBHOOK_URL = os.environ["WEBHOOK_URL"]  # e.g. https://myapp.railway.app
