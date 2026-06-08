@@ -153,9 +153,18 @@ async def _reply(update: Update, context, text: str, inject_message: str = None)
         chat_id=update.effective_chat.id, action="typing"
     )
 
+    # Contexto: tenta buscar calendário, mas não trava se falhar
     try:
         state_str, cal_str, dt_str = _build_context()
+    except Exception as e:
+        logger.error(f"Erro ao buscar contexto/calendário: {e}", exc_info=True)
+        tz = pytz.timezone(TIMEZONE)
+        now = datetime.now(tz)
+        state_str = format_state_for_prompt(load_state())
+        cal_str = "(calendário indisponível no momento)"
+        dt_str = now.strftime("%A, %d/%m/%Y %H:%M (Brasília)")
 
+    try:
         response, updated_history = get_response(
             user_message=user_msg,
             conversation_history=history,
@@ -173,14 +182,12 @@ async def _reply(update: Update, context, text: str, inject_message: str = None)
                 await update.message.reply_text(chunk)
 
     except Exception as e:
-        logger.error(f"Erro ao processar mensagem: {e}", exc_info=True)
-
-        # Auto-reset do histórico para se recuperar
+        logger.error(f"Erro na API Claude: {e}", exc_info=True)
+        err_type = type(e).__name__
         update_state({"conversation_history": []})
-
         await update.message.reply_text(
-            "Tive um problema interno e resetei o histórico da conversa para me recuperar. "
-            "Pode repetir sua última mensagem?"
+            f"⚠️ Erro ao processar ({err_type}). Histórico resetado.\n"
+            "Pode repetir sua mensagem?"
         )
 
 
