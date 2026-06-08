@@ -589,11 +589,13 @@ async def cmd_testcal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         env_file_info = f"erro: {e}"
 
     token = os.environ.get("GOOGLE_REFRESH_TOKEN", "NAO_DEFINIDO")
+    gcal = os.environ.get("GCAL_TOKEN", "NAO_DEFINIDO")
+    from config import GOOGLE_REFRESH_TOKEN as CONFIG_TOKEN
     await update.message.reply_text(
-        f"🔍 Token no servidor:\n"
-        f"Tamanho: {len(token)} chars\n"
-        f"Início: `{token[:15]}`\n"
-        f"Fim: `{token[-10:]}`\n"
+        f"🔍 Tokens no servidor:\n"
+        f"GOOGLE_REFRESH_TOKEN: {token[:15]} ({len(token)})\n"
+        f"GCAL_TOKEN: {gcal[:15]} ({len(gcal)})\n"
+        f"config.py usa: {CONFIG_TOKEN[:15]} ({len(CONFIG_TOKEN)})\n"
         f".env: {env_file_info}"
     )
     try:
