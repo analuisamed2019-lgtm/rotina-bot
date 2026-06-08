@@ -573,12 +573,28 @@ async def cmd_testcal(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import os
     from google.oauth2.credentials import Credentials
     from google.auth.transport.requests import Request as GRequest
+
+    # Verifica se existe .env no servidor
+    env_file_info = "não encontrado"
+    try:
+        with open("/app/.env") as f:
+            lines = [l for l in f.readlines() if "REFRESH" in l]
+            if lines:
+                env_file_info = f"TEM .env! Linha: {lines[0][:40]}"
+            else:
+                env_file_info = ".env existe mas sem REFRESH_TOKEN"
+    except FileNotFoundError:
+        env_file_info = "não encontrado (ok)"
+    except Exception as e:
+        env_file_info = f"erro: {e}"
+
     token = os.environ.get("GOOGLE_REFRESH_TOKEN", "NAO_DEFINIDO")
     await update.message.reply_text(
         f"🔍 Token no servidor:\n"
         f"Tamanho: {len(token)} chars\n"
         f"Início: `{token[:15]}`\n"
-        f"Fim: `{token[-10:]}`"
+        f"Fim: `{token[-10:]}`\n"
+        f".env: {env_file_info}"
     )
     try:
         from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
