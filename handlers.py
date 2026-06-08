@@ -161,8 +161,10 @@ async def _reply(update: Update, context, text: str, inject_message: str = None)
         tz = pytz.timezone(TIMEZONE)
         now = datetime.now(tz)
         state_str = format_state_for_prompt(load_state())
-        cal_str = "(calendário indisponível no momento)"
+        cal_str = f"(calendário indisponível — erro: {type(e).__name__}: {str(e)[:200]})"
         dt_str = now.strftime("%A, %d/%m/%Y %H:%M (Brasília)")
+        # Avisa diretamente em vez de passar pelo Claude
+        await update.message.reply_text(f"⚠️ Calendário: {type(e).__name__}: {str(e)[:300]}")
 
     try:
         response, updated_history = get_response(
