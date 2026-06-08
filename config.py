@@ -17,4 +17,4 @@ WEBHOOK_URL = os.environ["WEBHOOK_URL"]  # e.g. https://myapp.railway.app
 PORT = int(os.environ.get("PORT", 8080))
 
 TIMEZONE = "America/Sao_Paulo"
-# deploy: 2026-06-08c
+# deploy: 2026-06-08d
