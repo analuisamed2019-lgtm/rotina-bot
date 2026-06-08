@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 
 import pytz
@@ -14,9 +15,11 @@ from config import (
 )
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
+logger = logging.getLogger(__name__)
 
 
 def _get_service():
+    logger.info(f"[Calendar] refresh_token len={len(GOOGLE_REFRESH_TOKEN)} starts={GOOGLE_REFRESH_TOKEN[:10]!r}")
     creds = Credentials(
         token=None,
         refresh_token=GOOGLE_REFRESH_TOKEN,
