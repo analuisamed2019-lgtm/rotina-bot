@@ -599,37 +599,19 @@ async def cmd_testcal(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f".env: {env_file_info}"
     )
     try:
-        from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+        from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN as CONFIG_TOKEN
         creds = Credentials(
             token=None,
-            refresh_token=token.strip(),
+            refresh_token=CONFIG_TOKEN,
             token_uri="https://oauth2.googleapis.com/token",
             client_id=GOOGLE_CLIENT_ID,
             client_secret=GOOGLE_CLIENT_SECRET,
             scopes=["https://www.googleapis.com/auth/calendar"],
         )
         creds.refresh(GRequest())
-        await update.message.reply_text("✅ Token válido! Calendar funcionando.")
+        await update.message.reply_text("✅ Calendar OK! Token válido e funcionando.")
     except Exception as e:
-        await update.message.reply_text(f"❌ Erro token env:\n{e}")
-
-    # Teste com token novo hardcoded para confirmar se Railway consegue conectar
-    try:
-        from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
-        _t = ("1//0hEUYgApn07o-CgYIARAAGBESNwF-L9IrSknNKjMoUFXncO0tA97"
-              "RjW_7E8tbsCgjQVw5SaPn7NpgnFCo449LSySSNnkhO3ojMQM")
-        creds2 = Credentials(
-            token=None,
-            refresh_token=_t,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=GOOGLE_CLIENT_ID,
-            client_secret=GOOGLE_CLIENT_SECRET,
-            scopes=["https://www.googleapis.com/auth/calendar"],
-        )
-        creds2.refresh(GRequest())
-        await update.message.reply_text("✅ Token hardcoded funciona! Problema é só na env var do Railway.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Token hardcoded também falhou:\n{e}")
+        await update.message.reply_text(f"❌ Erro ao conectar Calendar:\n{e}")
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
