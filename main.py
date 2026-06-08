@@ -16,6 +16,7 @@ from handlers import (
     cmd_rotina,
     cmd_semana,
     cmd_setbloco,
+    cmd_settreino,
     cmd_start,
     cmd_testcal,
     cmd_treino,
@@ -46,6 +47,7 @@ def main():
     app.add_handler(CommandHandler("fimtreino", cmd_fimtreino))
     app.add_handler(CommandHandler("progressao", cmd_progressao))
     app.add_handler(CommandHandler("testcal", cmd_testcal))
+    app.add_handler(CommandHandler("settreino", cmd_settreino))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     tz = pytz.timezone(TIMEZONE)

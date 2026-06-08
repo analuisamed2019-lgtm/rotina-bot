@@ -449,6 +449,22 @@ async def cmd_progressao(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("\n".join(lines))
 
 
+async def cmd_settreino(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Define qual treino é o próximo. Uso: /settreino A ou /settreino B"""
+    if not _authorized(update):
+        return
+    args = context.args
+    if not args or args[0].upper() not in ("A", "B"):
+        await update.message.reply_text("Uso: `/settreino A` ou `/settreino B`", parse_mode="Markdown")
+        return
+    plan = args[0].upper()
+    state = load_state()
+    state.setdefault("gym", {"current_plan": "A", "active_session": None, "history": []})
+    state["gym"]["current_plan"] = plan
+    update_state(state)
+    await update.message.reply_text(f"✅ Próximo treino definido como **Treino {plan}**.", parse_mode="Markdown")
+
+
 async def cmd_setbloco(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Corrige o índice de um bloco de estudo diretamente.
     Uso: /setbloco block1_cirurgia 1
