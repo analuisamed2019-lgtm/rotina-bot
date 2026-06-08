@@ -566,6 +566,36 @@ def _format_financial_summary(s: dict, verbose: bool = False) -> str:
     return "\n".join(lines)
 
 
+async def cmd_testcal(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Diagnóstico do Calendar — testa token e reporta resultado."""
+    if not _authorized(update):
+        return
+    import os
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request as GRequest
+    token = os.environ.get("GOOGLE_REFRESH_TOKEN", "NAO_DEFINIDO")
+    await update.message.reply_text(
+        f"🔍 Token no servidor:\n"
+        f"Tamanho: {len(token)} chars\n"
+        f"Início: `{token[:15]}`\n"
+        f"Fim: `{token[-10:]}`"
+    )
+    try:
+        from config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+        creds = Credentials(
+            token=None,
+            refresh_token=token.strip(),
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=GOOGLE_CLIENT_ID,
+            client_secret=GOOGLE_CLIENT_SECRET,
+            scopes=["https://www.googleapis.com/auth/calendar"],
+        )
+        creds.refresh(GRequest())
+        await update.message.reply_text("✅ Token válido! Calendar funcionando.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Erro ao renovar token:\n{e}")
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _authorized(update):
         return
