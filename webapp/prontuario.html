@@ -426,26 +426,26 @@ const ico=(n,w=2)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 
 /* ---------- estado ---------- */
 const DEF_TYPES={plantao:{n:'Plantão',c:'#e5484d'},estudo:{n:'Estudo',c:'#3b82f6'},academia:{n:'Academia',c:'#f08c2e'},yoga:{n:'Yoga',c:'#30a46c'},pessoal:{n:'Pessoal',c:'#8e4ec6'}};
-// Semana de 12/10/2026 é B; semana de 05/10/2026 é A. Séries quinzenais a partir delas.
+// Treinos alternam por semana ímpar/par do calendário (numeração ISO, semana começa na segunda).
 const SEED_SERIES=[
- {id:'wA1',wk:'A',title:'Academia',type:'academia',time:'18:30',start:'2026-10-05',rule:'biweekly',skip:[],done:[]},
- {id:'wA2',wk:'A',title:'Yoga',type:'yoga',time:'06:00',start:'2026-10-06',rule:'biweekly',skip:[],done:[]},
- {id:'wA3',wk:'A',title:'Academia',type:'academia',time:'07:30',start:'2026-10-07',rule:'biweekly',skip:[],done:[]},
- {id:'wA4',wk:'A',title:'Yoga',type:'yoga',time:'07:00',start:'2026-10-08',rule:'biweekly',skip:[],done:[]},
- {id:'wB1',wk:'B',title:'Yoga',type:'yoga',time:'06:00',start:'2026-10-12',rule:'biweekly',skip:[],done:[]},
- {id:'wB2',wk:'B',title:'Yoga',type:'yoga',time:'06:00',start:'2026-10-13',rule:'biweekly',skip:[],done:[]},
- {id:'wB3',wk:'B',title:'Academia',type:'academia',time:'07:30',start:'2026-10-14',rule:'biweekly',skip:[],done:[]},
- {id:'wB4',wk:'B',title:'Academia',type:'academia',time:'14:00',start:'2026-10-15',rule:'biweekly',skip:[],done:[]},
+ {id:'wA1',title:'Academia',type:'academia',time:'18:30',start:'2026-10-05',rule:'odd',skip:[],done:[]},
+ {id:'wA2',title:'Yoga',type:'yoga',time:'06:00',start:'2026-10-06',rule:'odd',skip:[],done:[]},
+ {id:'wA3',title:'Academia',type:'academia',time:'07:30',start:'2026-10-07',rule:'odd',skip:[],done:[]},
+ {id:'wA4',title:'Yoga',type:'yoga',time:'07:00',start:'2026-10-08',rule:'odd',skip:[],done:[]},
+ {id:'wB1',title:'Yoga',type:'yoga',time:'06:00',start:'2026-10-12',rule:'even',skip:[],done:[]},
+ {id:'wB2',title:'Yoga',type:'yoga',time:'06:00',start:'2026-10-13',rule:'even',skip:[],done:[]},
+ {id:'wB3',title:'Academia',type:'academia',time:'07:30',start:'2026-10-14',rule:'even',skip:[],done:[]},
+ {id:'wB4',title:'Academia',type:'academia',time:'14:00',start:'2026-10-15',rule:'even',skip:[],done:[]},
 ];
-// Plantões fixos: Semana A = ímpar (05/10), Semana B = par (12/10). Tutora sem horário informado: 7h–19h.
+// Plantões fixos por semana ímpar/par do calendário. Tutora sem horário informado: 7h–19h.
 const SEED_RULES=[
- {id:'pA1',wk:'A',start:'2026-10-06',t0:'11:00',t1:'21:00',kind:'porta'},
- {id:'pA2',wk:'A',start:'2026-10-07',t0:'11:00',t1:'21:00',kind:'porta'},
- {id:'pA3',wk:'A',start:'2026-10-09',t0:'07:00',t1:'19:00',kind:'tutora'},
- {id:'pA4',wk:'A',start:'2026-10-10',t0:'07:00',t1:'19:00',kind:'tutora'},
- {id:'pB1',wk:'B',start:'2026-10-12',t0:'11:00',t1:'21:00',kind:'porta'},
- {id:'pB2',wk:'B',start:'2026-10-13',t0:'11:00',t1:'21:00',kind:'porta'},
- {id:'pB3',wk:'B',start:'2026-10-16',t0:'07:00',t1:'19:00',kind:'tutora'},
+ {id:'pA1',par:'odd',start:'2026-10-06',t0:'11:00',t1:'21:00',kind:'porta'},
+ {id:'pA2',par:'odd',start:'2026-10-07',t0:'11:00',t1:'21:00',kind:'porta'},
+ {id:'pA3',par:'odd',start:'2026-10-09',t0:'07:00',t1:'19:00',kind:'tutora'},
+ {id:'pA4',par:'odd',start:'2026-10-10',t0:'07:00',t1:'19:00',kind:'tutora'},
+ {id:'pB1',par:'even',start:'2026-10-12',t0:'11:00',t1:'21:00',kind:'porta'},
+ {id:'pB2',par:'even',start:'2026-10-13',t0:'11:00',t1:'21:00',kind:'porta'},
+ {id:'pB3',par:'even',start:'2026-10-16',t0:'07:00',t1:'19:00',kind:'tutora'},
 ];
 const KEYS=['settings','notes','tasks','series','shifts','money','energy','notices','rules'];
 const DEF=()=>({
@@ -457,12 +457,18 @@ const LS='prontuario-v1';
 let S=DEF();
 try{const raw=localStorage.getItem(LS);if(raw){const o=JSON.parse(raw);for(const k of KEYS) if(o[k]!==undefined) S[k]=o[k];}}catch(e){}
 function saveLocal(){try{localStorage.setItem(LS,JSON.stringify(S))}catch(e){}}
+let needMig=false;
 function fixShape(){
  const d=DEF();
  for(const k of KEYS) if(S[k]==null||typeof S[k]!==typeof d[k]) S[k]=d[k];
  S.settings.types=Object.assign(JSON.parse(JSON.stringify(DEF_TYPES)),S.settings.types||{});
  S.settings.rates=Object.assign({tutora:2200,porta:2000},S.settings.rates||{});
  for(const k of ['exp','fixed','inv']) if(!Array.isArray(S.money[k])) S.money[k]=[];
+ let ch=false;
+ for(const r of S.series)if(r.wk==='A'||r.wk==='B'){if(r.rule==='biweekly')r.rule=r.wk==='A'?'odd':'even';delete r.wk;ch=true}
+ for(const r of S.rules)if(r.wk){r.par=r.wk==='A'?'odd':'even';delete r.wk;r.regen=true;ch=true}
+ if(ch)needMig=true;
+ return ch;
 }
 fixShape();
 
@@ -526,7 +532,7 @@ async function boot(){
     }
     if(v===lastRemote[k]||dirty.has(k)||writing[k])return;
     lastRemote[k]=v;try{S[k]=JSON.parse(v)}catch(e){return}
-    fixShape();saveLocal();renderRemote();
+    if(fixShape()&&booted){regenRules();save('series','rules','shifts')}saveLocal();renderRemote();
    },err=>{if(!loaded[k]){loaded[k]=true;checkLoaded()}setSync('err')});
   }catch(e){loaded[k]=true}
  }
@@ -535,6 +541,7 @@ async function boot(){
 function afterLoad(){
  if(booted)return;booted=true;
  if(mode==='local')KEYS.forEach(k=>loaded[k]=true);
+ regenRules();if(needMig){needMig=false;save('series','rules','shifts')}
  genShifts();reschedule();render();
 }
 
@@ -549,12 +556,15 @@ async function claudeUse(c){
 
 /* ---------- domínio: agenda ---------- */
 const T=k=>S.settings.types[k]||{n:k,c:'#888'};
-const REC={none:'Não repete',daily:'Diária',weekly:'Semanal',biweekly:'A cada 2 semanas',monthly:'Mensal'};
-const weekAB=ds=>{const w=Math.round(diffD('2026-10-12',monday(ds))/7);return ((w%2)+2)%2===0?'B':'A'};
+const REC={none:'Não repete',daily:'Diária',weekly:'Semanal',odd:'Semanas ímpares',even:'Semanas pares',biweekly:'A cada 2 semanas',monthly:'Mensal'};
+function isoWeek(ds){const d=P(ds);const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const day=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-day);const y=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y)/864e5+1)/7)}
+const isoPar=ds=>isoWeek(ds)%2?'odd':'even';
+const parL=p=>p==='odd'?'ímpar':'par';
+const weekLbl=ds=>`Semana ${isoWeek(ds)} · ${parL(isoPar(ds))}`;
 function occurs(r,ds){
  if(ds<r.start)return false;if(r.until&&ds>=r.until)return false;if((r.skip||[]).includes(ds))return false;
  const d=diffD(r.start,ds);
- switch(r.rule){case 'daily':return true;case 'weekly':return d%7===0;case 'biweekly':return d%14===0;case 'monthly':return P(ds).getDate()===P(r.start).getDate();default:return d===0}
+ switch(r.rule){case 'daily':return true;case 'weekly':return d%7===0;case 'biweekly':return d%14===0;case 'odd':case 'even':return d%7===0&&isoPar(ds)===r.rule;case 'monthly':return P(ds).getDate()===P(r.start).getDate();default:return d===0}
 }
 function shiftHours(s){let d=toMin(s.end)-toMin(s.start);if(d<=0)d+=1440;return d/60}
 const shiftCross=s=>toMin(s.end)<=toMin(s.start);
@@ -654,30 +664,32 @@ function reschedule(){
  save('tasks','notices');
 }
 
-/* ---------- plantões fixos (quinzenais) ---------- */
+/* ---------- plantões fixos (semanas ímpares/pares) ---------- */
+// regras antigas (A/B quinzenal) são migradas: refaz os plantões futuros pela paridade do calendário
+function regenRules(){const t=today();let ch=false;for(const r of S.rules)if(r.regen){S.shifts=S.shifts.filter(x=>!(x.rule===r.id&&x.date>t));r.upto=t;delete r.regen;ch=true}if(ch)save('rules','shifts')}
 function genShifts(){
  const hz=addD(today(),180);let ch=false;
  for(const r of S.rules){
   let d=r.upto?addD(r.upto,1):r.start;if(d<r.start)d=r.start;
-  const off=diffD(r.start,d)%14;if(off)d=addD(d,14-off);
+  const off=diffD(r.start,d)%7;if(off)d=addD(d,7-off);
   const lim=r.until&&addD(r.until,-1)<hz?addD(r.until,-1):hz;
-  while(d<=lim){const id=r.id+'-'+d;if(!S.shifts.some(x=>x.id===id))S.shifts.push({id,date:d,start:r.t0,end:r.t1,kind:r.kind,v12:S.settings.rates[r.kind],rule:r.id});d=addD(d,14);ch=true}
+  while(d<=lim){if(isoPar(d)===r.par){const id=r.id+'-'+d;if(!S.shifts.some(x=>x.id===id)){S.shifts.push({id,date:d,start:r.t0,end:r.t1,kind:r.kind,v12:S.settings.rates[r.kind],rule:r.id});ch=true}}d=addD(d,7)}
   if(!r.upto||r.upto<lim){r.upto=lim;ch=true}
  }
  if(ch)save('rules','shifts');
 }
 const dropFutureRule=id=>{const t=today();S.shifts=S.shifts.filter(x=>!(x.rule===id&&x.date>=t&&!shiftDone(x)))};
-const BASE_AB={A:'2026-10-05',B:'2026-10-12'};
+const BASE_PAR={odd:'2026-10-05',even:'2026-10-12'};
 const ruleWd=r=>(P(r.start).getDay()+6)%7;
 const ruleLabel=r=>`${WDL[P(r.start).getDay()]} · ${kindName(r.kind)} ${hm(r.t0)}–${hm(r.t1)}`;
 function ruleForm(r){
- const o=r||{wk:'A',start:BASE_AB.A,t0:'07:00',t1:'19:00',kind:'tutora'};
+ const o=r||{par:'odd',start:BASE_PAR.odd,t0:'07:00',t1:'19:00',kind:'tutora'};
  sheet(r?'Editar plantão fixo':'Novo plantão fixo',`<form class="sh-b" data-f="rule" data-id="${r?r.id:''}">
-  <div class="grid2"><label class="field"><span>Semana</span><select class="in" id="rfWk"><option value="A" ${o.wk==='A'?'selected':''}>A · ímpar</option><option value="B" ${o.wk==='B'?'selected':''}>B · par</option></select></label>
+  <div class="grid2"><label class="field"><span>Semana</span><select class="in" id="rfWk"><option value="odd" ${o.par==='odd'?'selected':''}>Ímpar</option><option value="even" ${o.par==='even'?'selected':''}>Par</option></select></label>
   <label class="field"><span>Dia</span><select class="in" id="rfWd">${['segunda','terça','quarta','quinta','sexta','sábado','domingo'].map((n,i)=>`<option value="${i}" ${ruleWd(o)===i?'selected':''}>${n}</option>`).join('')}</select></label></div>
   <div class="grid2"><label class="field"><span>Início</span><input class="in" type="time" id="rfT0" value="${o.t0}" required></label><label class="field"><span>Fim</span><input class="in" type="time" id="rfT1" value="${o.t1}" required></label></div>
   <label class="field"><span>Tipo</span><select class="in" id="rfKind"><option value="tutora" ${o.kind==='tutora'?'selected':''}>Tutora</option><option value="porta" ${o.kind==='porta'?'selected':''}>Porta</option></select></label>
-  <p class="tiny faint" style="margin:0">${r?'A mudança vale de hoje em diante; plantões passados ficam como estão.':'Os plantões são criados a cada 2 semanas pelos próximos 6 meses e renovados sozinhos.'}</p>
+  <p class="tiny faint" style="margin:0">${r?'A mudança vale de hoje em diante; plantões passados ficam como estão.':'Os plantões são criados nas semanas ímpares ou pares do calendário pelos próximos 6 meses e renovados sozinhos.'}</p>
   <div class="btns"><button class="btn pri">Salvar</button>${r?`<button type="button" class="btn danger" data-a="endRule" data-id="${r.id}">Encerrar (mantém os passados)</button>`:''}</div></form>`);
 }
 
@@ -759,7 +771,7 @@ function cWeek(){
  }
  const end=addD(wk,6),a=P(wk),b=P(end);
  const range=a.getMonth()===b.getMonth()?`${a.getDate()}–${b.getDate()} ${MO[b.getMonth()]}`:`${a.getDate()} ${MO[a.getMonth()]} – ${b.getDate()} ${MO[b.getMonth()]}`;
- return `<section class="card week" aria-label="Semana"><div class="wk-h"><h2 class="num">${range}<span class="ab">Semana ${weekAB(wk)} · ${weekAB(wk)==='A'?'ímpar':'par'}</span></h2>
+ return `<section class="card week" aria-label="Semana"><div class="wk-h"><h2 class="num">${range}<span class="ab">${weekLbl(wk)}</span></h2>
  <div class="wk-nav"><button class="icon-btn" data-a="wk" data-v="-1" aria-label="Semana anterior">${ico('l')}</button><button class="btn sm" data-a="wk" data-v="0">Hoje</button><button class="icon-btn" data-a="wk" data-v="1" aria-label="Próxima semana">${ico('r')}</button></div></div>
  <div class="days">${days.join('')}</div></section>`;
 }
@@ -865,8 +877,8 @@ function vResumo(){
  const list=[];
  for(let i=0;i<7;i++){const ds=addD(ws,i);for(const it of itemsOn(ds))if(['academia','yoga','estudo'].includes(it.type))list.push(it)}
  const rows=[];
- for(let i=7;i>=0;i--){const w=addD(sumWk,-7*i);const s=weekStats(w);rows.push(`<tr class="${w===ws?'cur':''}"><td>${P(w).getDate()}/${pad(P(w).getMonth()+1)} <span class="faint">${weekAB(w)}</span></td><td>${s.academia[0]}/${s.academia[1]}</td><td>${s.yoga[0]}/${s.yoga[1]}</td><td>${s.estudo[0]}/${s.estudo[1]}</td><td>${s.sh.nd}/${s.sh.n}</td><td>${Math.round(s.sh.hd)} h</td><td>${brl0(s.sh.vd)}</td></tr>`)}
- return `<div class="ph"><div><h1>Resumo da semana</h1><div class="sub">${P(ws).getDate()} ${MO[P(ws).getMonth()]} – ${P(end).getDate()} ${MO[P(end).getMonth()]} · Semana ${weekAB(ws)}</div></div>
+ for(let i=7;i>=0;i--){const w=addD(sumWk,-7*i);const s=weekStats(w);rows.push(`<tr class="${w===ws?'cur':''}"><td>${P(w).getDate()}/${pad(P(w).getMonth()+1)} <span class="faint">s${isoWeek(w)}</span></td><td>${s.academia[0]}/${s.academia[1]}</td><td>${s.yoga[0]}/${s.yoga[1]}</td><td>${s.estudo[0]}/${s.estudo[1]}</td><td>${s.sh.nd}/${s.sh.n}</td><td>${Math.round(s.sh.hd)} h</td><td>${brl0(s.sh.vd)}</td></tr>`)}
+ return `<div class="ph"><div><h1>Resumo da semana</h1><div class="sub">${P(ws).getDate()} ${MO[P(ws).getMonth()]} – ${P(end).getDate()} ${MO[P(end).getMonth()]} · ${weekLbl(ws)}</div></div>
  <div class="pager"><button class="icon-btn" data-a="sumWk" data-v="-1" aria-label="Semana anterior">${ico('l')}</button><button class="btn sm" data-a="sumWk" data-v="0">Esta semana</button><button class="icon-btn" data-a="sumWk" data-v="1" aria-label="Próxima semana">${ico('r')}</button></div></div>
  <div class="cols">
  <section class="card"><div class="card-h"><h3>Feito / planejado</h3></div>${prog('academia')}${prog('yoga')}${prog('estudo')}</section>
@@ -1006,7 +1018,7 @@ function md(s){
 const PERSONA='Você é a assistente pessoal de uma médica que faz plantões de pronto-socorro de 12 h como PJ, estuda para a prova de residência pelo cursinho Medway e treina academia e yoga. Responda em português do Brasil. Tom: direto e acolhedor ao mesmo tempo — sincera sobre o problema, sem julgamento, sem sermão. Frases curtas. Use só os dados do contexto; não invente compromissos.';
 function aiContext(){
  memo={};const t=today();const L=[];
- L.push(`Hoje: ${dLong(t)} (${t}), Semana ${weekAB(t)} da alternância de treinos.`);
+ L.push(`Hoje: ${dLong(t)} (${t}), ${weekLbl(t)} do calendário (treinos e plantões fixos seguem semana ímpar/par).`);
  L.push('\nAGENDA DOS PRÓXIMOS 14 DIAS (energia prevista 1–5; capacidade = quantas tarefas de estudo/pessoais cabem; treinos não contam na capacidade):');
  for(let i=0;i<14;i++){
   const ds=addD(t,i);const its=itemsOn(ds);
@@ -1057,6 +1069,9 @@ function buildICS(){
  for(const x of S.tasks){if(x.time){const [d2,t2]=plus1h(x.date,x.time);ev(x.id,name(x),x.date,x.time,d2,t2)}else ev(x.id,name(x),x.date,'')}
  for(const s of S.shifts)ev(s.id,`Plantão ${kindName(s.kind)}`,s.date,s.start,shiftCross(s)?addD(s.date,1):s.date,s.end,[`DESCRIPTION:${icsEsc(shiftHours(s)+' h · '+brl(shiftValue(s)))}`]);
  for(const r of S.series){
+  if(r.rule==='odd'||r.rule==='even'){const t0=today();let d=r.start<addD(t0,-60)?addD(t0,-60):r.start;const off=diffD(r.start,d)%7;if(off)d=addD(d,7-off);const lim=r.until?addD(r.until,-1):addD(t0,365);
+   for(;d<=lim&&d<=addD(t0,365);d=addD(d,7))if(occurs(r,d)){if(r.time){const [d2,t2]=plus1h(d,r.time);ev(r.id+'-'+d,name(r),d,r.time,d2,t2)}else ev(r.id+'-'+d,name(r),d,'')}
+   continue}
   let rule={daily:'FREQ=DAILY',weekly:'FREQ=WEEKLY',biweekly:'FREQ=WEEKLY;INTERVAL=2',monthly:'FREQ=MONTHLY'}[r.rule]||'FREQ=WEEKLY';
   if(r.until)rule+=`;UNTIL=${icsD(addD(r.until,-1))}T235959`;
   const ex=(r.skip||[]).map(d=>r.time?`EXDATE:${icsD(d,r.time)}`:`EXDATE;VALUE=DATE:${icsD(d)}`);
@@ -1152,7 +1167,7 @@ function dayPanel(ds){
   const sub=it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`;
   return `<li><span class="tm">${tm}</span><span class="dot" style="background:${T(it.type).c}"></span><button class="grow" data-a="open" data-k="${it.k}" data-id="${it.id}" data-day="${ds}"><b>${h(title)}</b><span class="tiny faint">${h(sub)}</span></button>${it.k!=='shift'?`<button class="btn sm ${it.done?'pri':''}" data-a="toggle" data-k="${it.k}" data-id="${it.id}" data-day="${ds}" aria-pressed="${it.done}">${it.done?'Feito':'Concluir'}</button>`:''}</li>`;
  }).join('');
- return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>Semana ${weekAB(ds)} · ${weekAB(ds)==='A'?'ímpar':'par'}</span></div>
+ return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>${weekLbl(ds)}</span></div>
  ${its.length?`<ul class="lst tl">${rows}</ul>`:'<p class="empty">Dia livre, nada agendado.</p>'}
  <div class="btns"><button class="btn sm pri" data-a="newTask" data-ds="${ds}">+ Tarefa</button><button class="btn sm" data-a="newShift" data-ds="${ds}">+ Plantão</button><button class="btn sm" data-a="goWeek" data-ds="${ds}">Ver na semana</button></div>`;
 }
@@ -1186,7 +1201,7 @@ function openItem(k,id,day){
   return;
  }
  const r=S.series.find(x=>x.id===id);if(!r)return;const done=(r.done||[]).includes(day);
- sheet(T(r.type).n,`<div class="det"><span class="t">${h(r.title)}</span><span class="small muted">${dLong(day)}${r.time?' · '+hm(r.time):''}</span><span class="small faint">${REC[r.rule]}${r.wk?` · treino da Semana ${r.wk}`:''}</span></div>
+ sheet(T(r.type).n,`<div class="det"><span class="t">${h(r.title)}</span><span class="small muted">${dLong(day)}${r.time?' · '+hm(r.time):''}</span><span class="small faint">${REC[r.rule]}</span></div>
  <div class="btns"><button class="btn pri" data-a="toggle" data-k="ser" data-id="${r.id}" data-day="${day}" data-close="1">${done?'Desmarcar':'Concluir'}</button><button class="btn" data-a="editOcc" data-id="${r.id}" data-day="${day}">Editar / mover este dia</button></div>
  <div class="btns"><button class="btn" data-a="skipOcc" data-id="${r.id}" data-day="${day}">Pular só este dia</button><button class="btn" data-a="editSeries" data-id="${r.id}">Editar a série</button></div>
  <div class="sh-sec"><h4>Excluir</h4><div class="btns"><button class="btn danger" data-a="endSeries" data-id="${r.id}" data-day="${day}">Este e os próximos</button><button class="btn danger" data-a="delSeries" data-id="${r.id}">Toda a série</button></div></div>`);
@@ -1213,14 +1228,14 @@ function fixedSheet(f){
 function settingsSheet(){
  const th=S.settings.theme;
  const ser=s=>`<li><span class="dot" style="background:${T(s.type).c}"></span><button class="grow" data-a="editSeries" data-id="${s.id}"><b>${WDL[P(s.start).getDay()]} · ${h(s.title)}</b><span class="tiny faint">${s.time?hm(s.time):'sem horário'} · ${REC[s.rule]}${s.until?` · até ${dLabel(addD(s.until,-1))}`:''}</span></button></li>`;
- const A=S.series.filter(s=>s.wk==='A'),B=S.series.filter(s=>s.wk==='B'),O=S.series.filter(s=>!s.wk);
+ const A=S.series.filter(s=>s.rule==='odd'),B=S.series.filter(s=>s.rule==='even'),O=S.series.filter(s=>s.rule!=='odd'&&s.rule!=='even');
  sheet('Ajustes',`<div class="sh-sec"><h4>Tema</h4><div class="seg" role="group" aria-label="Tema">${[['system','Sistema'],['light','Claro'],['dark','Escuro']].map(([k,l])=>`<button data-a="theme" data-v="${k}" aria-pressed="${th===k}">${l}</button>`).join('')}</div></div>
  <div class="sh-sec"><h4>Cores por tipo</h4><div class="colors">${Object.keys(S.settings.types).map(k=>`<label><input type="color" value="${T(k).c}" data-color="${k}" aria-label="Cor de ${h(T(k).n)}">${h(T(k).n)}</label>`).join('')}</div></div>
  <form class="sh-sec" data-f="rates"><h4>Valor do plantão (por 12 h)</h4><div class="grid2"><label class="field"><span>Tutora · R$/12 h</span><input class="in" id="rtT" inputmode="decimal" value="${String(S.settings.rates.tutora).replace('.',',')}"></label><label class="field"><span>Porta · R$/12 h</span><input class="in" id="rtP" inputmode="decimal" value="${String(S.settings.rates.porta).replace('.',',')}"></label></div><p class="tiny faint" style="margin:0">Tutora ${brl(S.settings.rates.tutora/12)}/h · Porta ${brl(S.settings.rates.porta/12)}/h. Vale para plantões novos; os já cadastrados mantêm o valor.</p><div class="btns"><button class="btn pri">Salvar valores</button></div></form>
- <div class="sh-sec"><h4>Treinos · Semana A</h4><ul class="lst">${A.map(ser).join('')||'<li class="empty">Nenhum</li>'}</ul></div>
- <div class="sh-sec"><h4>Treinos · Semana B</h4><ul class="lst">${B.map(ser).join('')||'<li class="empty">Nenhum</li>'}</ul><p class="tiny faint" style="margin:0">A semana de 12/10/2026 é B; depois alternam. Toque para editar horário ou dia.</p></div>
+ <div class="sh-sec"><h4>Treinos · semanas ímpares</h4><ul class="lst">${A.map(ser).join('')||'<li class="empty">Nenhum</li>'}</ul></div>
+ <div class="sh-sec"><h4>Treinos · semanas pares</h4><ul class="lst">${B.map(ser).join('')||'<li class="empty">Nenhum</li>'}</ul><p class="tiny faint" style="margin:0">Ímpar ou par segue a numeração das semanas do calendário (esta é a ${weekLbl(today())}). Toque para editar horário ou dia.</p></div>
  ${O.length?`<div class="sh-sec"><h4>Outras séries</h4><ul class="lst">${O.map(ser).join('')}</ul></div>`:''}
- <div class="sh-sec"><h4>Plantões fixos</h4>${['A','B'].map(w=>`<p class="tiny faint" style="margin:4px 0 0">Semana ${w} · ${w==='A'?'ímpar':'par'}</p><ul class="lst">${S.rules.filter(r=>r.wk===w).sort((a,b)=>ruleWd(a)-ruleWd(b)).map(r=>`<li><span class="dot" style="background:${T('plantao').c}"></span><button class="grow" data-a="editRule" data-id="${r.id}"><b>${h(ruleLabel(r))}</b><span class="tiny faint">${f1(shiftHours({start:r.t0,end:r.t1})).replace(',0','')} h · ${brl(shiftHours({start:r.t0,end:r.t1})*S.settings.rates[r.kind]/12)}</span></button></li>`).join('')||'<li class="empty">Nenhum</li>'}</ul>`).join('')}<div class="btns"><button class="btn sm" data-a="newRule">+ Plantão fixo</button></div></div>
+ <div class="sh-sec"><h4>Plantões fixos</h4>${['odd','even'].map(w=>`<p class="tiny faint" style="margin:4px 0 0">Semanas ${w==='odd'?'ímpares':'pares'}</p><ul class="lst">${S.rules.filter(r=>r.par===w).sort((a,b)=>ruleWd(a)-ruleWd(b)).map(r=>`<li><span class="dot" style="background:${T('plantao').c}"></span><button class="grow" data-a="editRule" data-id="${r.id}"><b>${h(ruleLabel(r))}</b><span class="tiny faint">${f1(shiftHours({start:r.t0,end:r.t1})).replace(',0','')} h · ${brl(shiftHours({start:r.t0,end:r.t1})*S.settings.rates[r.kind]/12)}</span></button></li>`).join('')||'<li class="empty">Nenhum</li>'}</ul>`).join('')}<div class="btns"><button class="btn sm" data-a="newRule">+ Plantão fixo</button></div></div>
  <div class="sh-sec"><h4>Agenda</h4><div class="btns"><button class="btn" data-a="ics">Exportar agenda (.ics)</button></div><p class="tiny faint" style="margin:0">Importe no TickTick, Google Agenda ou Apple Calendário.</p></div>
  <div class="sh-sec"><h4>Dados</h4><p class="small" style="margin:0">${mode==='cloud'?'Salvos na sua conta: aparecem iguais no celular e no computador.':'Salvos só neste navegador (o banco da conta não respondeu). Exporte um backup de vez em quando.'}</p>
  <div class="btns"><button class="btn" data-a="backup">Exportar backup (.json)</button><label class="btn" for="bkIn">Importar backup</label><input type="file" id="bkIn" accept="application/json,.json" hidden></div></div>`);
@@ -1347,9 +1362,9 @@ const FORMS={
  },
  rule:f=>{
   const id=f.dataset.id,wkv=$('#rfWk').value,wd=+$('#rfWd').value,t0=$('#rfT0').value,t1=$('#rfT1').value,kind=$('#rfKind').value;
-  if(!t0||!t1)return;const start=addD(BASE_AB[wkv],wd),y=addD(today(),-1);
-  if(id){const r=S.rules.find(x=>x.id===id);if(!r)return;dropFutureRule(r.id);Object.assign(r,{wk:wkv,start,t0,t1,kind,upto:y});delete r.until}
-  else S.rules.push({id:nid(),wk:wkv,start,t0,t1,kind,upto:y});
+  if(!t0||!t1)return;const start=addD(BASE_PAR[wkv],wd),y=addD(today(),-1);
+  if(id){const r=S.rules.find(x=>x.id===id);if(!r)return;dropFutureRule(r.id);Object.assign(r,{par:wkv,start,t0,t1,kind,upto:y});delete r.until}
+  else S.rules.push({id:nid(),par:wkv,start,t0,t1,kind,upto:y});
   genShifts();save('rules','shifts');settingsSheet();toast('Plantão fixo salvo.');
  },
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
