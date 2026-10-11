@@ -64,9 +64,10 @@ h1,h2,h3,h4{margin:0;font-weight:700;text-wrap:balance}
 .icon-btn svg{width:20px;height:20px}
 
 /* Bottom tabs */
-.tabs-bot{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);display:grid;grid-template-columns:repeat(6,1fr)}
+.tabs-bot{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);display:grid;grid-template-columns:repeat(7,1fr)}
 .tab{height:var(--tab-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--fg-3)}
 .tab svg{width:22px;height:22px}
+@media (max-width:420px){.tabs-bot .tab{font-size:10.5px;letter-spacing:-.01em}.tabs-bot .tab svg{width:21px;height:21px}}
 .tab[aria-current="page"]{color:var(--accent)}
 .fab{position:fixed;right:18px;bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 16px);z-index:31;width:56px;height:56px;border-radius:18px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center;box-shadow:0 6px 18px rgba(0,0,0,.18)}
 .fab svg{width:26px;height:26px}
@@ -374,6 +375,11 @@ details.grp[open] summary::after{transform:rotate(-90deg)}
 .promo{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
 .promo:first-child{border-top:0}
 .promo .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qk-prev{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.qk-row{display:flex;align-items:center;gap:8px;font-size:14px;padding:8px 10px;border-radius:10px;background:var(--surface-2);min-width:0}
+.qk-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qk-row .grow{flex:1;min-width:0;display:flex;flex-direction:column}
+.qk-row .warn{color:var(--warn);font-size:12px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 84px);z-index:60;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
 @media (min-width:1100px){ .toast{bottom:28px} }
 .sugs{display:flex;flex-wrap:wrap;gap:6px}
@@ -672,7 +678,7 @@ function bestDay(start,task,extra){
 }
 function reschedule(){
  const t=today();
- const over=S.tasks.filter(x=>!x.done&&x.date<t).sort((a,b)=>a.date.localeCompare(b.date));
+ const over=S.tasks.filter(x=>!x.done&&!x.fixed&&x.date<t).sort((a,b)=>a.date.localeCompare(b.date));
  // limpa avisos antigos já vistos
  const before=S.notices.length;
  S.notices=S.notices.filter(n=>!n.seen||Date.now()-n.ts<60*864e5);
@@ -770,7 +776,7 @@ try{const t=localStorage.getItem(LS+'-tab');if(t)tab=t}catch(e){}
 let wk=monday(today()),calM=ym(today()),sumWk=monday(today()),monM=ym(today()),lastDay=today();
 const D={}; // rascunhos dos campos
 const AI={};let MW=null,FIT=null;
-const TABS=[['semana','Semana','week'],['resumo','Resumo','sum'],['dinheiro','Dinheiro','money'],['energia','Energia','energy'],['email','E-mail','mail'],['ia','IA','ai']];
+const TABS=[['semana','Semana','week'],['agendar','Agendar','plus'],['resumo','Resumo','sum'],['dinheiro','Dinheiro','money'],['energia','Energia','energy'],['email','E-mail','mail'],['ia','IA','ai']];
 function navHTML(){return TABS.map(([k,l,i])=>`<button class="tab" data-a="tab" data-v="${k}" ${tab===k?'aria-current="page"':''}>${ico(i)}<span>${l}</span></button>`).join('')}
 let isDesk=matchMedia('(min-width:1100px)');
 isDesk.addEventListener?.('change',()=>render());
@@ -792,15 +798,15 @@ function render(){
  $('#tabsTop').innerHTML=navHTML();$('#tabsBot').innerHTML=navHTML();
  const v=$('#view');
  if(tab==='email')mailStart();
- v.innerHTML=({semana:vHome,resumo:vResumo,dinheiro:vMoney,energia:vEnergy,email:vMail,ia:vAI}[tab]||vHome)();
+ v.innerHTML=({semana:vHome,resumo:vResumo,dinheiro:vMoney,energia:vEnergy,email:vMail,agendar:vQuick,ia:vAI}[tab]||vHome)();
  if(liveSheet&&!$('#sheet').hidden){const sh=$('#sheet .sh');const y=sh?sh.scrollTop:0;const f=liveSheet;f();liveSheet=f;const n=$('#sheet .sh');if(n)n.scrollTop=y}
 }
 
 /* ---------- Semana (tela inicial) ---------- */
 function vHome(){
  const notes=cNotes(),week=cWeek(),cal=cCal(),en=cEnergy(),av=cNotices(),st=cStudies(),mo=cMoneyMini();
- if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cal}${st}</div><div class="stack">${week}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
- return `<div class="home">${notes}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${st}${mo}</div></div>`;
+ if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cal}${st}</div><div class="stack">${week}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
+ return `<div class="home">${notes}${cFitHome()}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${st}${mo}</div></div>`;
 }
 function sortedNotes(){return [...S.notes].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.upd-a.upd)}
 function noteTime(ts){const d=new Date(ts);return `${d.getDate()} ${MO[d.getMonth()]}, ${pad(d.getHours())}:${pad(d.getMinutes())}`}
@@ -1002,6 +1008,50 @@ async function mailCall(tool,input){try{await mcp.callTool(GM,tool,input);return
 async function mailTrash(ids){if(!mcp||!ids.length)return;let n=0;toast(`Apagando ${ids.length}…`);
  for(const id of ids){if(await mailCall('trash_thread',{threadId:id}))n++;else break}
  MAIL.promo=(MAIL.promo||[]).filter(t=>!ids.includes(t.id));toast(`${n} e-mail${n===1?'':'s'} na lixeira.`);render();mailRefresh()}
+/* ---------- Agendar direto: texto livre → agenda, sem perguntas, sem remanejar ---------- */
+const QB='(?<![\\wÀ-ÿ])',QE='(?![\\wÀ-ÿ])';
+const QWD={domingo:0,dom:0,segunda:1,seg:1,'terça':2,terca:2,ter:2,quarta:3,qua:3,quinta:4,qui:4,sexta:5,sex:5,'sábado':6,sabado:6,'sáb':6,sab:6};
+const QMO={janeiro:1,jan:1,fevereiro:2,fev:2,'março':3,marco:3,mar:3,abril:4,abr:4,maio:5,mai:5,junho:6,jun:6,julho:7,jul:7,agosto:8,ago:8,setembro:9,set:9,outubro:10,out:10,novembro:11,nov:11,dezembro:12,dez:12};
+const qhm=(a,b)=>{a=+a;b=+(b||0);return a<24&&b<60?`${pad(a)}:${pad(b)}`:''};
+function qDate(y,m,d){const t=today();let yy=y?(+y<100?2000+ +y:+y):+t.slice(0,4);let ds=`${yy}-${pad(m)}-${pad(d)}`;if(!y&&ds<t)ds=`${yy+1}-${pad(m)}-${pad(d)}`;const x=P(ds);return x.getDate()===+d&&x.getMonth()+1===+m?ds:null}
+function parseQuick(raw){
+ let s=' '+String(raw).replace(/\s+/g,' ').trim()+' ';const t=today();let date=null,time='',end='',guess=false;
+ const cut=(re,fn)=>{const m=s.match(re);if(!m)return false;const r=fn(m);if(r===false)return false;s=s.replace(m[0],' ');return true};
+ const R=x=>new RegExp(x,'i');
+ cut(R(QB+'depois de amanh[ãa]'+QE),()=>{date=addD(t,2)})||cut(R(QB+'amanh[ãa]'+QE),()=>{date=addD(t,1)})||cut(R(QB+'hoje'+QE),()=>{date=t})||
+ cut(R(QB+'(?:dia\\s+)?(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?'+QE),m=>{const d=qDate(m[3],m[2],m[1]);if(!d)return false;date=d})||
+ cut(R(QB+'(?:dia\\s+)?(\\d{1,2})\\s+de\\s+([a-zç]+)(?:\\s+de\\s+(\\d{4}))?'+QE),m=>{const mo=QMO[m[2].toLowerCase()];if(!mo)return false;const d=qDate(m[3],mo,m[1]);if(!d)return false;date=d})||
+ cut(R(QB+'(?:(?:na|no|nesta|neste|esta|este)\\s+)?(pr[óo]xim[oa]\\s+)?(segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|seg|ter|qua|qui|sex|s[áa]b|dom)(?:-feira)?(\\s+que\\s+vem)?'+QE),m=>{const wd=QWD[m[2].toLowerCase()];if(wd==null)return false;let d=t;while(P(d).getDay()!==wd)d=addD(d,1);if(m[1]||m[3]){if(d===t||diffD(t,d)<7)d=addD(d,d===t?7:0)}date=d})||
+ cut(R(QB+'dia\\s+(\\d{1,2})'+QE),m=>{const [y,mo]=t.split('-');let d=qDate(y,mo,m[1]);if(d&&d<t){const nm=addM(ym(t),1);d=qDate(nm.slice(0,4),nm.slice(5),m[1])}if(!d)return false;date=d});
+ cut(R(QB+'das?\\s+(\\d{1,2})(?:[:h](\\d{2}))?\\s*h?\\s*(?:às|as|até|ate|a|-|–)\\s*(\\d{1,2})(?:[:h](\\d{2}))?\\s*(?:h|hs|horas)?'+QE),m=>{time=qhm(m[1],m[2]);end=qhm(m[3],m[4]);if(!time)return false})||
+ cut(R(QB+'(\\d{1,2})(?:[:h](\\d{2}))?h?\\s*(?:-|–|às|as|até)\\s*(\\d{1,2})(?:[:h](\\d{2}))?\\s*(?:h|hs)'+QE),m=>{time=qhm(m[1],m[2]);end=qhm(m[3],m[4]);if(!time)return false})||
+ cut(R('(?:'+QB+'(?:às|as|@)\\s*)?'+QB+'(\\d{1,2})(?::(\\d{2})|h(\\d{2})?)(?:\\s*(?:h|hs|horas))?'+QE),m=>{time=qhm(m[1],m[2]||m[3]);if(!time)return false})||
+ cut(R(QB+'(?:às|as)\\s+(\\d{1,2})'+QE),m=>{time=qhm(m[1]);if(!time)return false});
+ if(end&&end<=time)end='';
+ if(!date){date=t;guess=true}
+ let title=s.replace(/\s+/g,' ').trim().replace(/^(incluir|adicionar|agendar|marcar|colocar|anotar|lembrar de|lembrar)\s+/i,'').replace(/\s+(no|na|em|para|pra|dia|às|as|de|do|da|,|-)$/i,'').replace(/^(no|na|em|para|pra|de|,|-)\s+/i,'').replace(/[,;.\s-]+$/,'').trim();
+ if(!title)title='Compromisso';title=title.charAt(0).toUpperCase()+title.slice(1);
+ const low=title.toLowerCase();
+ const type=/\byoga\b/.test(low)?'yoga':/academia|treino|muscula|personal/.test(low)?'academia':/estud|aula|simulado|revis[aã]o|medway|quest[õo]es/.test(low)?'estudo':'pessoal';
+ return {title,date,time,end,type,guess};
+}
+function quickConflicts(q){if(!q.time)return '';const a=toMin(q.time),b=q.end?toMin(q.end):a+60;
+ const sh=S.shifts.filter(x=>x.date===q.date).find(x=>{let s0=toMin(x.start),e0=toMin(x.end);if(e0<=s0)e0+=1440;return a<e0&&b>s0});
+ return sh?`coincide com plantão ${hm(sh.start)}–${hm(sh.end)}`:''}
+function quickPrevHTML(txt){const ls=String(txt||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,20);
+ if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>aniversário da Bia 25/10</i>.</p>';
+ return ls.map(l=>{const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b><span class="tiny muted">${dLabel(q.date)}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
+let QK_RECENT=[];
+function vQuick(){
+ const rec=QK_RECENT.map(id=>findTask(id)).filter(Boolean);
+ return `<div class="ph"><div><h1>Agendar</h1><div class="sub">Compromissos com dia certo: entram direto na agenda e nunca são remanejados</div></div></div>
+ <div class="cols"><section class="card span2"><form data-f="quick"><label class="field"><span>O que e quando</span><textarea class="in" id="qkTxt" data-d rows="3" placeholder="dentista terça às 15h&#10;reunião contador dia 20 das 14 às 15">${h(D.qkTxt||'')}</textarea></label>
+ <div class="qk-prev" id="qkPrev">${quickPrevHTML(D.qkTxt)}</div>
+ <div class="btns" style="margin-top:10px"><button class="btn pri">Agendar</button><span class="tiny faint" style="align-self:center">Enter agenda · Shift+Enter nova linha</span></div></form></section>
+ <section class="card span2"><div class="card-h"><h3>Agendados agora</h3></div>${rec.length?`<ul class="lst">${rec.map(t=>`<li><span class="dot" style="background:${T(t.type).c}"></span><button class="grow" data-a="open" data-k="task" data-id="${t.id}"><b>${h(t.title)}</b><span class="tiny faint">${dLabel(t.date)}${t.time?' · '+hm(t.time)+(t.end?'–'+hm(t.end):''):''}</span></button><button class="btn sm" data-a="quickUndo" data-id="${t.id}">Desfazer</button></li>`).join('')}</ul>`:'<p class="empty">O que você agendar aqui aparece nesta lista, com opção de desfazer.</p>'}
+ <p class="tiny faint" style="margin:8px 0 0">Para a IA escolher o melhor dia, use "Adicionar atividade · IA" na tela inicial.</p></section></div>`;
+}
+
 /* ---------- Resumo ---------- */
 function weekStats(ws){
  const r={academia:[0,0],yoga:[0,0],estudo:[0,0],sh:{n:0,nd:0,h:0,hd:0,v:0,vd:0}};
@@ -1148,19 +1198,22 @@ function eChart(){
 }
 
 /* ---------- IA ---------- */
+function fitPreview(){return FIT?`<div>${FIT.options.map((o,i)=>`<div class="opt"><b>${i===0?'Melhor opção':'Alternativa'}: ${h(dLabel(o.date))}${o.time?' às '+h(hm(o.time)):''}</b><span class="small">${h(FIT.title)} · ${h(T(FIT.type).n)}</span><span class="small muted">${h(o.reason||'')}</span><div><button class="btn sm pri" data-a="fitAdd" data-i="${i}">Adicionar este</button></div></div>`).join('')}</div>`:''}
+function fitForm(){const off=aiState==='off';return `<form data-f="aiFit"><textarea class="in" id="aiFitTxt" data-d rows="2" placeholder="Ex.: renovar CRM, umas 2 h, de preferência de manhã">${h(D.aiFitTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.fit?.busy?'disabled':''}>Sugerir encaixe</button></div></form>`}
+function cFitHome(){return `<section class="card" aria-label="Encaixar uma atividade com IA"><div class="card-h"><h3>Adicionar atividade · IA</h3><button class="link" data-a="tab" data-v="agendar">Agendar direto</button></div><p class="tiny faint" style="margin:-4px 0 8px">A IA sugere o melhor dia e horário; você confirma.</p>${aiState==='off'?'<p class="empty">IA indisponível nesta visualização.</p>':fitForm()+aiOut('fit')+fitPreview()}</section>`}
 function vAI(){
  const off=aiState==='off';
  const card=(key,title,desc,body)=>`<section class="card"><div class="card-h"><h3>${title}</h3></div>${desc?`<p class="small muted" style="margin:0 0 10px">${desc}</p>`:''}${body}${aiOut(key)}</section>`;
  const mwPrev=MW?`<div style="margin-top:12px"><div class="small muted" style="margin-bottom:6px">${MW.items.length} temas encontrados. Distribuídos em dias com capacidade livre, até 2 por dia e nenhum em dia de plantão de 10 h ou mais. Ajuste antes de adicionar:</div>
   <div>${MW.items.map((x,i)=>`<div class="mw-row"><input type="checkbox" data-mw="on" data-i="${i}" ${x.on?'checked':''} aria-label="Incluir ${h(x.theme)}"><span>${h(x.theme)}</span><input class="in" type="date" data-mw="date" data-i="${i}" value="${x.date}" aria-label="Data de ${h(x.theme)}"></div>`).join('')}</div>
   <div class="btns" style="margin-top:10px"><button class="btn pri" data-a="mwAdd">Adicionar ${MW.items.filter(x=>x.on).length} temas à agenda</button><button class="btn" data-a="mwCancel">Descartar</button></div></div>`:'';
- const fitPrev=FIT?`<div>${FIT.options.map((o,i)=>`<div class="opt"><b>${i===0?'Melhor opção':'Alternativa'}: ${h(dLabel(o.date))}${o.time?' às '+h(hm(o.time)):''}</b><span class="small">${h(FIT.title)} · ${h(T(FIT.type).n)}</span><span class="small muted">${h(o.reason||'')}</span><div><button class="btn sm pri" data-a="fitAdd" data-i="${i}">Adicionar este</button></div></div>`).join('')}</div>`:'';
+ const fitPrev=fitPreview();
  return `<div class="ph"><div><h1>IA</h1><div class="sub">Lê sua agenda de 14 dias, energia, tarefas e o mês financeiro</div></div></div>
  ${off?`<div class="ai-off">A IA não está disponível nesta visualização. Abra o app pelo claude.ai com sua conta para usar estes recursos.</div>`:''}
  <div class="cols">
  ${card('week','Avaliar minha semana','Opinião sincera sobre os próximos 7 dias, com 2–3 ações concretas.',`<button class="btn pri" data-a="aiWeek" ${off||AI.week?.busy?'disabled':''}>Avaliar minha semana</button>`)}
  ${card('mot','Preciso de motivação','Mensagem curta e honesta, com um próximo passo possível hoje.',`<button class="btn pri" data-a="aiMot" ${off||AI.mot?.busy?'disabled':''}>Preciso de motivação</button>`)}
- ${card('fit','Encaixar uma atividade','Descreva o que precisa fazer. A IA sugere dia e horário; você confirma antes de entrar na agenda.',`<form data-f="aiFit"><textarea class="in" id="aiFitTxt" data-d rows="2" placeholder="Ex.: renovar CRM, umas 2 h, de preferência de manhã">${h(D.aiFitTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.fit?.busy?'disabled':''}>Sugerir encaixe</button></div></form>${fitPrev}`)}
+ ${card('fit','Encaixar uma atividade','Descreva o que precisa fazer. A IA sugere dia e horário; você confirma antes de entrar na agenda.',fitForm()+fitPrev)}
  ${card('mw','Importar cronograma da Medway','Cole o texto do cronograma'+(aiImages?' ou envie um print':'')+'. A IA extrai os temas e o app distribui nos seus dias livres.',`<form data-f="aiMw"><textarea class="in" id="aiMwTxt" data-d rows="4" placeholder="Cole aqui o cronograma…">${h(D.aiMwTxt||'')}</textarea>${aiImages?`<label class="field" style="margin-top:8px"><span>Print do cronograma (opcional)</span><input class="in" type="file" id="aiMwImg" accept="image/png,image/jpeg,image/webp" multiple style="padding:7px"></label>`:''}<div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.mw?.busy?'disabled':''}>Extrair temas</button></div></form>${mwPrev}`)}
  <div class="span2">${card('q','Pergunte o que quiser','Ex.: "vale aceitar um plantão extra no sábado?"',`<form data-f="aiQ"><textarea class="in" id="aiQTxt" data-d rows="2" placeholder="Sua pergunta…">${h(D.aiQTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.q?.busy?'disabled':''}>Perguntar</button></div></form>`)}</div>
  </div>`;
@@ -1236,7 +1289,7 @@ function buildICS(){
   extra.forEach(x=>L.push(fold(x)));L.push('END:VEVENT')};
  const plus1h=(ds,t)=>{const m=toMin(t)+60;return m>=1440?[addD(ds,1),'00:00']:[ds,`${pad(Math.floor(m/60))}:${pad(m%60)}`]};
  const name=x=>x.type==='estudo'?`Estudo – ${x.title}`:x.title;
- for(const x of S.tasks){if(x.time){const [d2,t2]=plus1h(x.date,x.time);ev(x.id,name(x),x.date,x.time,d2,t2)}else ev(x.id,name(x),x.date,'')}
+ for(const x of S.tasks){if(x.time){const [d2,t2]=x.end&&x.end>x.time?[x.date,x.end]:plus1h(x.date,x.time);ev(x.id,name(x),x.date,x.time,d2,t2)}else ev(x.id,name(x),x.date,'')}
  for(const s of S.shifts)ev(s.id,`Plantão ${kindName(s.kind)}`,s.date,s.start,shiftCross(s)?addD(s.date,1):s.date,s.end,[`DESCRIPTION:${icsEsc(shiftHours(s)+' h · '+brl(shiftValue(s)))}`]);
  for(const r of S.series){
   if(r.rule==='odd'||r.rule==='even'){const t0=today();let d=r.start<addD(t0,-60)?addD(t0,-60):r.start;const off=diffD(r.start,d)%7;if(off)d=addD(d,7-off);const lim=r.until?addD(r.until,-1):addD(t0,365);
@@ -1364,7 +1417,7 @@ function openItem(k,id,day){
  if(k==='shift'){const s=S.shifts.find(x=>x.id===id);if(s)shiftForm(s);return}
  if(k==='task'){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
-  sheet(T(t.type).n,`<div class="det"><span class="t">${h(t.title)}</span><span class="small muted">${dLong(t.date)}${t.time?' · '+hm(t.time):''}</span>${t.moved?`<span class="small"><span class="pill ${t.moved>=3?'warn':''}">remanejada ${t.moved}×</span> <span class="faint">original: ${dLabel(t.orig||t.date)}</span></span>`:''}</div>
+  sheet(T(t.type).n,`<div class="det"><span class="t">${h(t.title)}</span><span class="small muted">${dLong(t.date)}${t.time?' · '+hm(t.time)+(t.end?'–'+hm(t.end):''):''}</span>${t.fixed?'<span class="small"><span class="pill">compromisso fixo · não é remanejado</span></span>':''}${t.moved?`<span class="small"><span class="pill ${t.moved>=3?'warn':''}">remanejada ${t.moved}×</span> <span class="faint">original: ${dLabel(t.orig||t.date)}</span></span>`:''}</div>
   <div class="btns"><button class="btn pri" data-a="toggle" data-k="task" data-id="${t.id}" data-close="1">${t.done?'Desmarcar':'Concluir'}</button><button class="btn" data-a="editTask" data-id="${t.id}">Editar</button></div>
   <div class="sh-sec"><h4>Mover para</h4>${moveSugs(t.date,'moveTask',t.id)}<input class="in" type="date" id="mvDate" value="${t.date}" data-a2="moveTaskInput" data-id="${t.id}" aria-label="Escolher outra data"></div>
   <div class="btns"><button class="btn danger" data-a="delTask" data-id="${t.id}">Excluir</button></div>`);
@@ -1418,7 +1471,7 @@ const ACT={
  tab:el=>{tab=el.dataset.v;try{localStorage.setItem(LS+'-tab',tab)}catch(e){}render();window.scrollTo(0,0)},
  settings:()=>settingsSheet(),
  closeSheet:()=>closeSheet(),
- fab:()=>sheet('Adicionar',`<div class="menu"><button data-a="newTask"><i style="background:${T('pessoal').c}"></i><span>Tarefa ou evento<small>Estudo, treino, pessoal… com repetição opcional</small></span></button><button data-a="newShift"><i style="background:${T('plantao').c}"></i><span>Plantão<small>Data, horário e tipo; valor calculado</small></span></button><button data-a="newExp"><i style="background:var(--s-sup)"></i><span>Gasto supérfluo<small>Anotação: já entra na fatura</small></span></button><button data-a="cardOpen"><i style="background:var(--s-fix)"></i><span>Valor da fatura<small>Atualizar ou registrar o fechamento</small></span></button></div>`),
+ fab:()=>sheet('Adicionar',`<div class="menu"><button data-a="newTask"><i style="background:${T('pessoal').c}"></i><span>Tarefa ou evento<small>Estudo, treino, pessoal… com repetição opcional</small></span></button><button data-a="quickTab"><i style="background:var(--accent)"></i><span>Agendar direto<small>Escreva "dentista terça às 15h" e pronto</small></span></button><button data-a="newShift"><i style="background:${T('plantao').c}"></i><span>Plantão<small>Data, horário e tipo; valor calculado</small></span></button><button data-a="newExp"><i style="background:var(--s-sup)"></i><span>Gasto supérfluo<small>Anotação: já entra na fatura</small></span></button><button data-a="cardOpen"><i style="background:var(--s-fix)"></i><span>Valor da fatura<small>Atualizar ou registrar o fechamento</small></span></button></div>`),
  newTask:el=>taskForm({mode:'new',date:el.dataset.ds||(tab==='semana'&&wk!==monday(today())?wk:today()),type:el.dataset.type||'pessoal'}),
  newShift:el=>shiftForm(null,el&&el.dataset&&el.dataset.ds),
  invYes:el=>{const m=el.dataset.m;const real=S.money.inv.filter(e=>ym(e.date)===m).reduce((a,e)=>a+e.v,0);const add=Math.max(0,S.card.investT-real);if(add>0)S.money.inv.push({id:nid(),desc:'Aporte mensal',v:add,date:invDateFor(m),ts:Date.now()});S.money.plan[m]={st:'done',at:Date.now()};save('money');closeSheet();toast('Aporte confirmado.')},
@@ -1440,6 +1493,8 @@ const ACT={
  mailTrashAll:async el=>{if(!armed(el))return;await mailTrash(promoList().map(t=>t.id))},
  mailAI:()=>{const imp=mailGroups().imp.slice(0,30).map(t=>`- ${mailWhen(t.date)} | ${senderName(t.sender)} <${senderKey(t.sender)}> | ${t.subject} | ${t.snippet.slice(0,220)}${t.unread?' | NÃO LIDO':''}`).join('\n');
   aiText('mail',`${PERSONA}\n\nHoje é ${dLong(today())}. Estes são os e-mails que o app classificou como importantes na caixa de entrada dela (data | remetente | assunto | trecho):\n${imp||'(nenhum)'}\n\nTAREFA: diga em até 150 palavras o que realmente pede ação dela, em ordem de urgência, com prazo quando houver (ex.: inscrição, nota fiscal, pagamento, prova, mudança de regra profissional). Depois, em uma linha, o que pode ser ignorado. Formato: lista curta com "o quê → o que fazer". Não invente prazos que não estão nos trechos.`)},
+ quickUndo:el=>{S.tasks=S.tasks.filter(x=>x.id!==el.dataset.id);QK_RECENT=QK_RECENT.filter(x=>x!==el.dataset.id);save('tasks');toast('Desfeito.')},
+ quickTab:()=>{closeSheet();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
  cardDel:el=>{if(!armed(el))return;S.card.entries=S.card.entries.filter(e=>e.id!==el.dataset.id);save('card')},
  cardMeta:el=>{const cyc=el.dataset.cyc,b=cardBudget(cyc);sheet('Meta da fatura',`<div class="sh-sec"><p class="small muted" style="margin:0">A meta muda sozinha a cada mês: é o que sobra da renda depois dos fixos e do investimento.</p>
@@ -1514,10 +1569,11 @@ const ACT={
  mwCancel:()=>{MW=null;render()},
 };
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const f=ACT[el.dataset.a];if(f){e.preventDefault();f(el,e)}});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet();if(e.key==='Enter'&&!e.shiftKey&&e.target.id==='qkTxt'&&!e.isComposing){e.preventDefault();FORMS.quick(e.target.form)}});
 document.addEventListener('input',e=>{
  const el=e.target;
  if(el.hasAttribute('data-d')&&el.id)D[el.id]=el.value;
+ if(el.id==='qkTxt'){const pv=document.getElementById('qkPrev');if(pv)pv.innerHTML=quickPrevHTML(el.value)}
  if(el.hasAttribute('data-calc'))calcShift();
  if(el.dataset.mw&&MW){const x=MW.items[+el.dataset.i];if(!x)return;if(el.dataset.mw==='date')x.date=el.value;}
  if(el.id==='tfType'){const l=$('#tfTitleL');if(l)l.textContent=el.value==='estudo'?'Tema (na agenda aparece só "Estudo")':'Título'}
@@ -1565,6 +1621,9 @@ const FORMS={
  cardSheet:f=>{const v=parseBRL($('#csV').value);if(!(v>=0)){toast('Informe o valor (ex.: 13.000,00).');return}const date=$('#csDate').value||today();const fin=$('#csFinal').checked;const cyc=fin?f.dataset.cyc:cycleOf(date);S.card.entries.push({id:nid(),cyc,date,v,final:fin,ts:Date.now()});save('card');closeSheet();toast('Fatura registrada.')},
  invOther:f=>{const m=f.dataset.m,v=parseBRL($('#ioV').value);if(!(v>=0)){toast('Informe o valor (ex.: 3.500,00).');return}if(v>0)S.money.inv.push({id:nid(),desc:'Aporte mensal',v,date:$('#ioDate').value||invDateFor(m),ts:Date.now()});S.money.plan[m]={st:v>0?'done':'skip',at:Date.now()};save('money');closeSheet();toast('Aporte registrado.')},
  cardInvT:f=>{const v=parseBRL($('#ciT').value);if(!(v>=0)){toast('Valor inválido.');return}S.card.investT=v;save('card');closeSheet();toast('Aporte mensal salvo.')},
+ quick:f=>{const ls=String(D.qkTxt||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!ls.length)return;const msgs=[];
+  for(const l of ls){const q=parseQuick(l);const id=nid();S.tasks.push({id,title:q.title,type:q.type,date:q.date,time:q.time,end:q.end||'',fixed:true,done:false,created:Date.now()});QK_RECENT.unshift(id);msgs.push(`${q.title} → ${dLabel(q.date)}${q.time?' '+hm(q.time):''}`)}
+  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks');toast(ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`)},
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
  addExp:f=>{const v=parseBRL(D.mxV);const name=(D.mxName||'').trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#mxDate').value||today()});D.mxName='';D.mxV='';save('money')},
  addInv:f=>{const v=parseBRL(D.ivV);if(!(v>0)){toast('Informe o valor do aporte (ex.: 1.500,00).');return}S.money.inv.push({id:nid(),desc:(D.ivDesc||'').trim(),v,date:$('#ivDate').value||today()});D.ivDesc='';D.ivV='';save('money')},
