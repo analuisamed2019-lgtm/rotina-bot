@@ -64,7 +64,7 @@ h1,h2,h3,h4{margin:0;font-weight:700;text-wrap:balance}
 .icon-btn svg{width:20px;height:20px}
 
 /* Bottom tabs */
-.tabs-bot{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);display:grid;grid-template-columns:repeat(5,1fr)}
+.tabs-bot{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);display:grid;grid-template-columns:repeat(6,1fr)}
 .tab{height:var(--tab-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--fg-3)}
 .tab svg{width:22px;height:22px}
 .tab[aria-current="page"]{color:var(--accent)}
@@ -355,6 +355,25 @@ tr.cur td{background:var(--accent-soft)}
 .mv-day h4{font-family:var(--font-d);font-size:17px}
 .dp-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;color:var(--fg-2)}
 .tl li .tm{width:70px;flex:none;font-weight:700;font-size:13px;color:var(--fg-2);font-variant-numeric:tabular-nums}
+.mail{display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--line);min-width:0}
+.mail:first-child{border-top:0}
+.mail .mw{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.mail .mt{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+.mail .ms{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mail.unread .ms::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:1px}
+.mail .md{font-size:12px;color:var(--fg-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+.mail .mj{font-size:14px;color:var(--fg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}
+.mail .mj:hover{text-decoration:underline}
+.mail .mp{font-size:12.5px;color:var(--fg-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mail .ma{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+details.grp{border-top:1px solid var(--line);padding:8px 0}
+details.grp summary{cursor:pointer;font-weight:700;font-size:14px;display:flex;justify-content:space-between;gap:8px;list-style:none}
+details.grp summary::-webkit-details-marker{display:none}
+details.grp summary::after{content:"›";color:var(--fg-3);transform:rotate(90deg);transition:transform .15s}
+details.grp[open] summary::after{transform:rotate(-90deg)}
+.promo{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+.promo:first-child{border-top:0}
+.promo .grow{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 84px);z-index:60;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
 @media (min-width:1100px){ .toast{bottom:28px} }
 .sugs{display:flex;flex-wrap:wrap;gap:6px}
@@ -421,6 +440,7 @@ const IC={
  plus:'<path d="M12 5v14M5 12h14"/>',
  l:'<path d="M15 6l-6 6 6 6"/>', r:'<path d="M9 6l6 6-6 6"/>',
  pin:'<path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7"/>',
+ mail:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M4 7l8 6 8-6"/>',
 };
 const ico=(n,w=2)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 
@@ -447,11 +467,11 @@ const SEED_RULES=[
  {id:'pB2',par:'even',start:'2026-10-13',t0:'11:00',t1:'21:00',kind:'porta'},
  {id:'pB3',par:'even',start:'2026-10-16',t0:'07:00',t1:'19:00',kind:'tutora'},
 ];
-const KEYS=['settings','notes','tasks','series','shifts','money','energy','notices','rules','card'];
+const KEYS=['settings','notes','tasks','series','shifts','money','energy','notices','rules','card','mail'];
 const DEF=()=>({
  settings:{types:JSON.parse(JSON.stringify(DEF_TYPES)),rates:{tutora:2200,porta:2000},theme:'system'},
  notes:[],tasks:[],series:JSON.parse(JSON.stringify(SEED_SERIES)),shifts:[],
- money:{exp:[],fixed:[],inv:[],plan:{}},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES)),card:{closeDay:21,entries:[],metas:[],investT:5000,planFrom:'2026-10'}
+ money:{exp:[],fixed:[],inv:[],plan:{}},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES)),card:{closeDay:21,entries:[],metas:[],investT:5000,planFrom:'2026-10'},mail:{vip:[],mute:[]}
 });
 const LS='prontuario-v1';
 let S=DEF();
@@ -464,6 +484,7 @@ function fixShape(){
  S.settings.types=Object.assign(JSON.parse(JSON.stringify(DEF_TYPES)),S.settings.types||{});
  S.settings.rates=Object.assign({tutora:2200,porta:2000},S.settings.rates||{});
  for(const k of ['exp','fixed','inv']) if(!Array.isArray(S.money[k])) S.money[k]=[];
+ for(const k of ['vip','mute'])if(!Array.isArray(S.mail[k]))S.mail[k]=[];
  if(!(S.card.closeDay>=1))S.card.closeDay=21;for(const k of ['entries','metas'])if(!Array.isArray(S.card[k]))S.card[k]=[];if(!(S.card.investT>=0))S.card.investT=5000;if(!S.card.planFrom)S.card.planFrom='2026-10';if(!S.money.plan||typeof S.money.plan!=='object'||Array.isArray(S.money.plan))S.money.plan={};
  let ch=false;
  for(const r of S.series)if(r.wk==='A'||r.wk==='B'){if(r.rule==='biweekly')r.rule=r.wk==='A'?'odd':'even';delete r.wk;ch=true}
@@ -749,7 +770,7 @@ try{const t=localStorage.getItem(LS+'-tab');if(t)tab=t}catch(e){}
 let wk=monday(today()),calM=ym(today()),sumWk=monday(today()),monM=ym(today()),lastDay=today();
 const D={}; // rascunhos dos campos
 const AI={};let MW=null,FIT=null;
-const TABS=[['semana','Semana','week'],['resumo','Resumo','sum'],['dinheiro','Dinheiro','money'],['energia','Energia','energy'],['ia','IA','ai']];
+const TABS=[['semana','Semana','week'],['resumo','Resumo','sum'],['dinheiro','Dinheiro','money'],['energia','Energia','energy'],['email','E-mail','mail'],['ia','IA','ai']];
 function navHTML(){return TABS.map(([k,l,i])=>`<button class="tab" data-a="tab" data-v="${k}" ${tab===k?'aria-current="page"':''}>${ico(i)}<span>${l}</span></button>`).join('')}
 let isDesk=matchMedia('(min-width:1100px)');
 isDesk.addEventListener?.('change',()=>render());
@@ -770,15 +791,16 @@ function render(){
  $('#todayLbl').textContent=dLong(today());
  $('#tabsTop').innerHTML=navHTML();$('#tabsBot').innerHTML=navHTML();
  const v=$('#view');
- v.innerHTML=({semana:vHome,resumo:vResumo,dinheiro:vMoney,energia:vEnergy,ia:vAI}[tab]||vHome)();
+ if(tab==='email')mailStart();
+ v.innerHTML=({semana:vHome,resumo:vResumo,dinheiro:vMoney,energia:vEnergy,email:vMail,ia:vAI}[tab]||vHome)();
  if(liveSheet&&!$('#sheet').hidden){const sh=$('#sheet .sh');const y=sh?sh.scrollTop:0;const f=liveSheet;f();liveSheet=f;const n=$('#sheet .sh');if(n)n.scrollTop=y}
 }
 
 /* ---------- Semana (tela inicial) ---------- */
 function vHome(){
  const notes=cNotes(),week=cWeek(),cal=cCal(),en=cEnergy(),av=cNotices(),st=cStudies(),mo=cMoneyMini();
- if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cal}${st}</div><div class="stack">${week}</div><div class="stack">${en}${av}${mo}</div></div>`;
- return `<div class="home">${notes}${week}<div class="cards">${av}${en}${cal}${st}${mo}</div></div>`;
+ if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cal}${st}</div><div class="stack">${week}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
+ return `<div class="home">${notes}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${st}${mo}</div></div>`;
 }
 function sortedNotes(){return [...S.notes].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.upd-a.upd)}
 function noteTime(ts){const d=new Date(ts);return `${d.getDate()} ${MO[d.getMonth()]}, ${pad(d.getHours())}:${pad(d.getMinutes())}`}
@@ -899,6 +921,79 @@ function cMoneyMini(){
  ${(()=>{const cyc=cycleOf(today()),c=cardInfo(cyc);return `<button class="kv" data-a="cardOpen" style="width:100%;text-align:left;margin-top:4px"><span>Fatura · fecha ${dLabel(c.cd)}</span><b>${c.val!=null?brl(c.val):'registrar'}${c.gap!=null?` <span class="${c.gap>=0?'pos':'neg'}" style="font-weight:600">· ${c.gap>=0?'faltam '+brl0(c.gap):'passou '+brl0(-c.gap)}</span>`:''}</b></button>`})()}</section>`;
 }
 
+/* ---------- E-mail (Gmail via conector, com a conta de quem abre o app) ---------- */
+const GM='Gmail';
+const Q_MAIN='in:inbox newer_than:14d -category:promotions -category:social';
+const Q_PROMO='in:inbox newer_than:30d (category:promotions OR category:social)';
+let mcp=null;const MAIL={state:'idle',main:null,promo:null,err:'',started:false,busy:{}};
+const IMP_RX=/vunesp|resid[eê]ncia|inscri[cç][aã]o|edital|prova|nota fiscal|boleto|fatura|vencimento|pagamento|prazo|urgente|plant[aã]o|escala|contrato|\bcrm\b|sncr|receitu[aá]rio|prevent ?senior|medway|contador|contabil|imposto|receita federal|cnpj|recibo|holerite|repasse/i;
+const SEC_RX=/accounts\.google|noreply-accounts@google|noreply@github|googleplay|mail\.anthropic|alerta de seguran|c[oó]digo de verifica|verification code|verify|nova senha|troca de senha|login/i;
+const DIG_RX=/resumo de atividade|newsletter|\bnews@|digest/i;
+function decodeEnt(x){const t=document.createElement('textarea');t.innerHTML=String(x||'');return t.value.replace(/[͏​-‍­  ]+/g,' ').replace(/\s{2,}/g,' ').trim()}
+function senderName(s){s=String(s||'');const m=s.match(/^\s*"?([^"<]+?)"?\s*</);if(m)return m[1].trim();const em=(s.match(/<([^>]+)>/)||[,s])[1];const dom=(em.split('@')[1]||em).toLowerCase().split('.').filter(x=>!/^(mail|email|e-mail|news|newsletter|marketing|mkt|ola|transacional|outbound|ead|info|em|send|m|br|com|org|net|gov|edu)$/.test(x));const n=dom[0]||em;return n.charAt(0).toUpperCase()+n.slice(1)}
+const senderKey=s=>{const em=(String(s).match(/<([^>]+)>/)||[,String(s)])[1].toLowerCase().trim();return em.split('@')[1]||em};
+function threadsOf(res){let p=res&&res.payload;if(!p&&res&&res.content){try{p=JSON.parse((res.content.find(c=>c.type==='text')||{}).text||'{}')}catch(e){p={}}}
+ return ((p&&p.threads)||[]).map(t=>{const ms=t.messages||[];const f=ms[0]||{},l=ms[ms.length-1]||f;const labels=[...new Set(ms.flatMap(m=>m.labelIds||[]))];
+  return {id:t.id,subject:decodeEnt(f.subject||'(sem assunto)'),snippet:decodeEnt(l.snippet||''),sender:l.sender||f.sender||'',date:l.date||f.date||'',url:t.viewUrl||l.viewUrl||'',count:t.messageCount||ms.length,labels,unread:labels.includes('UNREAD')}});}
+function mailBucket(t){const k=senderKey(t.sender),ml=S.mail||{};const txt=`${t.sender} ${t.subject} ${t.snippet}`;
+ if((ml.mute||[]).includes(k))return 'mute';if((ml.vip||[]).includes(k))return 'imp';
+ if(SEC_RX.test(txt))return 'sec';if(IMP_RX.test(txt))return 'imp';if(DIG_RX.test(txt)||/hcxfmusp/.test(k))return 'dig';
+ if(t.labels.includes('IMPORTANT')||t.labels.includes('CATEGORY_PERSONAL'))return 'imp';return 'upd'}
+function mailErr(e){const c=e&&e.code;MAIL.err=c==='server_not_connected'?'O Gmail não está conectado à sua conta do Claude. Conecte em claude.ai/customize/connectors e abra o app de novo.':c==='not_granted'||c==='denied'||c==='not_in_manifest'?'Você não autorizou este app a ler o Gmail. Use o menu de permissões do app para liberar.':c==='needs_reauth'||c==='auth_required'?'A conexão com o Gmail expirou. Reconecte em claude.ai/customize/connectors.':'Não consegui falar com o Gmail agora. Tente atualizar em instantes.';MAIL.state=MAIL.main?'ok':'err'}
+async function mailStart(){
+ if(MAIL.started)return;MAIL.started=true;MAIL.state='loading';
+ try{mcp=await window.claude?.use?.('mcp')}catch(e){mcp=null}
+ if(!mcp){MAIL.state='off';mailRender();return}
+ try{localStorage.setItem(LS+'-mail','1')}catch(e){}
+ const h1=ev=>{if(ev.type==='data'){MAIL.main=threadsOf(ev.result);MAIL.state='ok';MAIL.err='';MAIL.at=Date.now()}else mailErr(ev.error);mailRender()};
+ const h2=ev=>{if(ev.type==='data'){MAIL.promo=threadsOf(ev.result)}mailRender()};
+ mcp.watchTool(GM,'search_threads',{query:Q_MAIN,pageSize:50},h1,{cache:{staleTime:60000,gcTime:3600000},refetchInterval:300000});
+ mcp.watchTool(GM,'search_threads',{query:Q_PROMO,pageSize:50},h2,{cache:{staleTime:60000,gcTime:3600000},refetchInterval:900000});
+}
+let mailRT=null;function mailRender(){clearTimeout(mailRT);mailRT=setTimeout(()=>{if(tab==='email'||tab==='semana')renderRemote()},60)}
+async function mailRefresh(){if(!mcp)return;MAIL.state=MAIL.main?'ok':'loading';
+ for(const q of [Q_MAIN,Q_PROMO]){try{const r=await mcp.callTool(GM,'search_threads',{query:q,pageSize:50},{cache:{staleTime:60000,gcTime:3600000,refresh:true}});if(q===Q_MAIN){MAIL.main=threadsOf(r);MAIL.at=Date.now();MAIL.err=''}else MAIL.promo=threadsOf(r)}catch(e){if(q===Q_MAIN)mailErr(e)}}
+ mailRender()}
+function mailWhen(d){if(!d)return '';const x=new Date(d);if(isNaN(x))return '';const ds=ymd(x);return ds===today()?`${pad(x.getHours())}:${pad(x.getMinutes())}`:ds===addD(today(),-1)?'ontem':`${x.getDate()}/${pad(x.getMonth()+1)}`}
+function mailRow(t,full){
+ return `<div class="mail ${t.unread?'unread':''}"><div class="mw"><div class="mt"><span class="ms">${h(senderName(t.sender))}${t.count>1?` <span class="faint" style="font-weight:500">(${t.count})</span>`:''}</span><span class="md">${mailWhen(t.date)}</span></div>
+ ${t.url?`<a class="mj" href="${h(t.url)}" target="_blank" rel="noopener">${h(t.subject)}</a>`:`<span class="mj">${h(t.subject)}</span>`}<span class="mp">${h(t.snippet)}</span>
+ ${full?`<div class="ma">${t.unread?`<button class="btn sm" data-a="mailAct" data-op="read" data-id="${t.id}">Lida</button>`:''}<button class="btn sm" data-a="mailAct" data-op="archive" data-id="${t.id}">Arquivar</button><button class="btn sm" data-a="mailTask" data-id="${t.id}">+ Tarefa</button><button class="btn sm" data-a="mailSender" data-id="${t.id}">Remetente…</button></div>`:''}</div></div>`;
+}
+function mailGroups(){const g={imp:[],upd:[],sec:[],dig:[],mute:[]};for(const t of MAIL.main||[])g[mailBucket(t)].push(t);return g}
+function cMailMini(){
+ const on=MAIL.started||(()=>{try{return localStorage.getItem(LS+'-mail')==='1'}catch(e){return false}})();
+ if(on&&!MAIL.started)setTimeout(mailStart,0);
+ let body;
+ if(!on)body=`<p class="empty">Veja só os e-mails que importam, sem as propagandas.</p><div class="btns"><button class="btn sm" data-a="tab" data-v="email">Abrir e-mails</button></div>`;
+ else if(MAIL.state==='loading'||!MAIL.main)body=`<p class="empty">${MAIL.err?h(MAIL.err):MAIL.state==='off'?'Gmail indisponível nesta visualização.':'Carregando e-mails…'}</p>`;
+ else{const imp=mailGroups().imp,un=imp.filter(t=>t.unread);body=imp.length?`<div>${(un.length?un:imp).slice(0,3).map(t=>mailRow(t,false)).join('')}</div>`:'<p class="empty">Nada importante nos últimos 14 dias.</p>';}
+ const n=MAIL.main?mailGroups().imp.filter(t=>t.unread).length:0;
+ return `<section class="card" aria-label="E-mails importantes"><div class="card-h"><h3>E-mails${n?` · ${n} não lido${n>1?'s':''}`:''}</h3><button class="link" data-a="tab" data-v="email">Abrir</button></div>${body}</section>`;
+}
+function vMail(){
+ const head=`<div class="ph"><div><h1>E-mail</h1><div class="sub">Caixa de entrada dos últimos 14 dias, sem propaganda${MAIL.at?` · atualizado ${mailWhen(new Date(MAIL.at).toISOString())}`:''}</div></div><div class="btns"><button class="btn sm" data-a="mailRefresh" ${!mcp?'disabled':''}>Atualizar</button><button class="btn sm pri" data-a="mailAI" ${!mcp||!MAIL.main||aiState==='off'||AI.mail?.busy?'disabled':''}>Resumir o que importa</button></div></div>`;
+ if(MAIL.state==='off')return head+`<div class="ai-off">O Gmail não está disponível nesta visualização. Abra o app pelo claude.ai com a sua conta.</div>`;
+ if(!MAIL.main)return head+`<section class="card"><p class="empty">${MAIL.err?h(MAIL.err):'Carregando e-mails… Na primeira vez, o Claude pede sua permissão para o app ler o Gmail.'}</p></section>`;
+ const g=mailGroups();
+ const grp=(title,l,open)=>l.length?`<details class="grp" ${open?'open':''}><summary><span>${title}</span><span class="faint num">${l.length}</span></summary><div>${l.map(t=>mailRow(t,true)).join('')}</div></details>`:'';
+ const promoBy={};for(const t of MAIL.promo||[]){const k=senderKey(t.sender);(promoBy[k]=promoBy[k]||{k,name:senderName(t.sender),ids:[]}).ids.push(t.id)}
+ const pl=Object.values(promoBy).sort((a,b)=>b.ids.length-a.ids.length);const ptot=pl.reduce((a,x)=>a+x.ids.length,0);
+ return head+`${MAIL.err?`<div class="ai-off">${h(MAIL.err)}</div>`:''}<div class="cols">
+ <section class="card span2"><div class="card-h"><h3>Importantes · ${g.imp.length}</h3><span class="tiny faint">${g.imp.filter(t=>t.unread).length} não lidos</span></div>${aiOut('mail')}
+  ${g.imp.length?g.imp.map(t=>mailRow(t,true)).join(''):'<p class="empty">Nada importante nos últimos 14 dias.</p>'}</section>
+ <section class="card"><div class="card-h"><h3>O resto da caixa</h3></div>${grp('Outras atualizações',g.upd,false)}${grp('Resumos de cursos e newsletters',g.dig,false)}${grp('Contas e segurança',g.sec,false)}${grp('Silenciados',g.mute,false)}${!g.upd.length&&!g.dig.length&&!g.sec.length&&!g.mute.length?'<p class="empty">Nada além dos importantes.</p>':''}</section>
+ <section class="card"><div class="card-h"><h3>Propagandas · ${ptot}</h3>${ptot?`<button class="btn sm danger" data-a="mailTrashAll">Apagar todas</button>`:''}</div>
+  <p class="tiny faint" style="margin:-4px 0 8px">Últimos 30 dias. Apagar manda para a lixeira do Gmail (dá para recuperar por 30 dias).</p>
+  ${pl.length?pl.map(x=>`<div class="promo"><span class="grow"><b>${h(x.name)}</b> <span class="faint">· ${h(x.k)}</span></span><span class="faint num">${x.ids.length}</span><button class="btn sm" data-a="mailTrashSender" data-k="${h(x.k)}">Apagar</button></div>`).join(''):'<p class="empty">Nenhuma propaganda na caixa de entrada.</p>'}</section>
+ </div>`;
+}
+const findMail=id=>(MAIL.main||[]).concat(MAIL.promo||[]).find(t=>t.id===id);
+async function mailCall(tool,input){try{await mcp.callTool(GM,tool,input);return true}catch(e){toast(e&&e.code==='server_not_connected'?'Gmail desconectado.':'O Gmail recusou a ação. Tente de novo.');return false}}
+
+async function mailTrash(ids){if(!mcp||!ids.length)return;let n=0;toast(`Apagando ${ids.length}…`);
+ for(const id of ids){if(await mailCall('trash_thread',{threadId:id}))n++;else break}
+ MAIL.promo=(MAIL.promo||[]).filter(t=>!ids.includes(t.id));toast(`${n} e-mail${n===1?'':'s'} na lixeira.`);render();mailRefresh()}
 /* ---------- Resumo ---------- */
 function weekStats(ws){
  const r={academia:[0,0],yoga:[0,0],estudo:[0,0],sh:{n:0,nd:0,h:0,hd:0,v:0,vd:0}};
@@ -1184,8 +1279,8 @@ function sheet(title,body,wide){
 function closeSheet(){liveSheet=null;$('#sheet').hidden=true;$('#sheet').innerHTML='';try{sheetOpener?.focus?.()}catch(e){}}
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200)}
 const typeOpts=(sel,noShift=true)=>Object.keys(S.settings.types).filter(k=>!noShift||k!=='plantao').map(k=>`<option value="${k}" ${k===sel?'selected':''}>${h(T(k).n)}</option>`).join('');
-function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoal'}){
- const o=task||ser||{};const title=o.title||'';const tp=o.type||type;
+function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoal',title:t0=''}){
+ const o=task||ser||{};const title=o.title||t0;const tp=o.type||type;
  const dt=mode==='editSeries'?ser.start:mode==='editOcc'?day:(task?task.date:date||today());
  const showRec=mode==='new'||mode==='editSeries';
  const heading={new:'Nova tarefa',editTask:'Editar tarefa',editSeries:'Editar série',editOcc:'Editar só este dia'}[mode];
@@ -1323,6 +1418,19 @@ const ACT={
  invOther:el=>{const m=el.dataset.m;sheet('Quanto você investiu?',`<form class="sh-b" data-f="invOther" data-m="${m}"><div class="grid2"><label class="field"><span>Valor (R$)</span><input class="in" id="ioV" inputmode="decimal" required placeholder="0,00"></label><label class="field"><span>Data</span><input class="in" type="date" id="ioDate" value="${invDateFor(m)}"></label></div><p class="tiny faint" style="margin:0">Substitui o previsto de ${brl(S.card.investT)} em ${mLabel(m)}.</p><div class="btns"><button class="btn pri">Confirmar</button></div></form>`)},
  invAsk:el=>{const m=el.dataset.m,st=(S.money.plan[m]||{}).st;sheet(`Aporte de ${MOL[+m.slice(5)-1]}`,`<p class="small" style="margin:0">${st==='done'?'Você confirmou o aporte deste mês.':st==='skip'?'Você marcou que não investiu neste mês.':`O app está contando ${brl(S.card.investT)} como investidos neste mês.`}</p><div class="btns"><button class="btn pri" data-a="invYes" data-m="${m}">Investi ${brl0(S.card.investT)}</button><button class="btn" data-a="invOther" data-m="${m}">Outro valor</button><button class="btn" data-a="invNo" data-m="${m}">Não investi</button>${st?`<button class="btn" data-a="invReset" data-m="${m}">Voltar a "previsto"</button>`:''}</div>`)},
  invReset:el=>{delete S.money.plan[el.dataset.m];save('money');closeSheet()},
+ mailRefresh:()=>mailRefresh(),
+ mailAct:async el=>{const t=findMail(el.dataset.id);if(!t||!mcp)return;const op=el.dataset.op;el.disabled=true;
+  const ok=await mailCall('unlabel_thread',{threadId:t.id,labelIds:[op==='read'?'UNREAD':'INBOX']});
+  if(ok){if(op==='read'){t.unread=false;t.labels=t.labels.filter(x=>x!=='UNREAD')}else MAIL.main=MAIL.main.filter(x=>x.id!==t.id);toast(op==='read'?'Marcado como lido.':'Arquivado.');render()}else el.disabled=false},
+ mailTask:el=>{const t=findMail(el.dataset.id);if(t)taskForm({mode:'new',date:today(),type:'pessoal',title:t.subject.slice(0,80)})},
+ mailSender:el=>{const t=findMail(el.dataset.id);if(!t)return;const k=senderKey(t.sender),vip=S.mail.vip.includes(k),mu=S.mail.mute.includes(k);
+  sheet(senderName(t.sender),`<p class="small muted" style="margin:0">${h(k)}</p><div class="menu"><button data-a="mailVip" data-k="${h(k)}"><i style="background:var(--good)"></i><span>${vip?'Deixar de marcar como importante':'Sempre importante'}<small>E-mails deste remetente vão para Importantes</small></span></button><button data-a="mailMute" data-k="${h(k)}"><i style="background:var(--fg-3)"></i><span>${mu?'Voltar a mostrar':'Silenciar'}<small>Some de Importantes e do card da tela inicial</small></span></button></div>`)},
+ mailVip:el=>{const k=el.dataset.k;S.mail.vip=S.mail.vip.includes(k)?S.mail.vip.filter(x=>x!==k):[...S.mail.vip,k];S.mail.mute=S.mail.mute.filter(x=>x!==k);save('mail');closeSheet()},
+ mailMute:el=>{const k=el.dataset.k;S.mail.mute=S.mail.mute.includes(k)?S.mail.mute.filter(x=>x!==k):[...S.mail.mute,k];S.mail.vip=S.mail.vip.filter(x=>x!==k);save('mail');closeSheet()},
+ mailTrashSender:async el=>{if(!armed(el))return;const k=el.dataset.k;const ids=(MAIL.promo||[]).filter(t=>senderKey(t.sender)===k).map(t=>t.id);await mailTrash(ids)},
+ mailTrashAll:async el=>{if(!armed(el))return;await mailTrash((MAIL.promo||[]).map(t=>t.id))},
+ mailAI:()=>{const imp=mailGroups().imp.slice(0,30).map(t=>`- ${mailWhen(t.date)} | ${senderName(t.sender)} <${senderKey(t.sender)}> | ${t.subject} | ${t.snippet.slice(0,220)}${t.unread?' | NÃO LIDO':''}`).join('\n');
+  aiText('mail',`${PERSONA}\n\nHoje é ${dLong(today())}. Estes são os e-mails que o app classificou como importantes na caixa de entrada dela (data | remetente | assunto | trecho):\n${imp||'(nenhum)'}\n\nTAREFA: diga em até 150 palavras o que realmente pede ação dela, em ordem de urgência, com prazo quando houver (ex.: inscrição, nota fiscal, pagamento, prova, mudança de regra profissional). Depois, em uma linha, o que pode ser ignorado. Formato: lista curta com "o quê → o que fazer". Não invente prazos que não estão nos trechos.`)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
  cardDel:el=>{if(!armed(el))return;S.card.entries=S.card.entries.filter(e=>e.id!==el.dataset.id);save('card')},
  cardMeta:el=>{const cyc=el.dataset.cyc,b=cardBudget(cyc);sheet('Meta da fatura',`<div class="sh-sec"><p class="small muted" style="margin:0">A meta muda sozinha a cada mês: é o que sobra da renda depois dos fixos e do investimento.</p>
