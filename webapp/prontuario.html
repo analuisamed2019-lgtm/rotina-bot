@@ -935,7 +935,11 @@ const senderKey=s=>{const em=(String(s).match(/<([^>]+)>/)||[,String(s)])[1].toL
 function threadsOf(res){let p=res&&res.payload;if(!p&&res&&res.content){try{p=JSON.parse((res.content.find(c=>c.type==='text')||{}).text||'{}')}catch(e){p={}}}
  return ((p&&p.threads)||[]).map(t=>{const ms=t.messages||[];const f=ms[0]||{},l=ms[ms.length-1]||f;const labels=[...new Set(ms.flatMap(m=>m.labelIds||[]))];
   return {id:t.id,subject:decodeEnt(f.subject||'(sem assunto)'),snippet:decodeEnt(l.snippet||''),sender:l.sender||f.sender||'',date:l.date||f.date||'',url:t.viewUrl||l.viewUrl||'',count:t.messageCount||ms.length,labels,unread:labels.includes('UNREAD')}});}
+// remetentes que são sempre importantes (Prevent Senior, Vunesp), inclusive subdomínios
+const ALWAYS_IMP=['preventsenior.com.br','vunesp.com.br'];
+const alwaysImp=k=>ALWAYS_IMP.some(d=>k===d||k.endsWith('.'+d));
 function mailBucket(t){const k=senderKey(t.sender),ml=S.mail||{};const txt=`${t.sender} ${t.subject} ${t.snippet}`;
+ if(alwaysImp(k))return 'imp';
  if((ml.mute||[]).includes(k))return 'mute';if((ml.vip||[]).includes(k))return 'imp';
  if(SEC_RX.test(txt))return 'sec';if(IMP_RX.test(txt))return 'imp';if(DIG_RX.test(txt)||/hcxfmusp/.test(k))return 'dig';
  if(t.labels.includes('IMPORTANT')||t.labels.includes('CATEGORY_PERSONAL'))return 'imp';return 'upd'}
@@ -960,7 +964,10 @@ function mailRow(t,full){
  ${t.url?`<a class="mj" href="${h(t.url)}" target="_blank" rel="noopener">${h(t.subject)}</a>`:`<span class="mj">${h(t.subject)}</span>`}<span class="mp">${h(t.snippet)}</span>
  ${full?`<div class="ma">${t.unread?`<button class="btn sm" data-a="mailAct" data-op="read" data-id="${t.id}">Lida</button>`:''}<button class="btn sm" data-a="mailAct" data-op="archive" data-id="${t.id}">Arquivar</button><button class="btn sm" data-a="mailTask" data-id="${t.id}">+ Tarefa</button><button class="btn sm" data-a="mailSender" data-id="${t.id}">Remetente…</button></div>`:''}</div></div>`;
 }
-function mailGroups(){const g={imp:[],upd:[],sec:[],dig:[],mute:[]};for(const t of MAIL.main||[])g[mailBucket(t)].push(t);return g}
+const promoKeep=t=>{const k=senderKey(t.sender);return alwaysImp(k)||(S.mail.vip||[]).includes(k)};
+function mailGroups(){const g={imp:[],upd:[],sec:[],dig:[],mute:[]};for(const t of MAIL.main||[])g[mailBucket(t)].push(t);
+ for(const t of MAIL.promo||[])if(promoKeep(t))g.imp.push(t);g.imp.sort((a,b)=>String(b.date).localeCompare(String(a.date)));return g}
+const promoList=()=>(MAIL.promo||[]).filter(t=>!promoKeep(t));
 function cMailMini(){
  const on=MAIL.started||(()=>{try{return localStorage.getItem(LS+'-mail')==='1'}catch(e){return false}})();
  if(on&&!MAIL.started)setTimeout(mailStart,0);
@@ -977,7 +984,7 @@ function vMail(){
  if(!MAIL.main)return head+`<section class="card"><p class="empty">${MAIL.err?h(MAIL.err):'Carregando e-mails… Na primeira vez, o Claude pede sua permissão para o app ler o Gmail.'}</p></section>`;
  const g=mailGroups();
  const grp=(title,l,open)=>l.length?`<details class="grp" ${open?'open':''}><summary><span>${title}</span><span class="faint num">${l.length}</span></summary><div>${l.map(t=>mailRow(t,true)).join('')}</div></details>`:'';
- const promoBy={};for(const t of MAIL.promo||[]){const k=senderKey(t.sender);(promoBy[k]=promoBy[k]||{k,name:senderName(t.sender),ids:[]}).ids.push(t.id)}
+ const promoBy={};for(const t of promoList()){const k=senderKey(t.sender);(promoBy[k]=promoBy[k]||{k,name:senderName(t.sender),ids:[]}).ids.push(t.id)}
  const pl=Object.values(promoBy).sort((a,b)=>b.ids.length-a.ids.length);const ptot=pl.reduce((a,x)=>a+x.ids.length,0);
  return head+`${MAIL.err?`<div class="ai-off">${h(MAIL.err)}</div>`:''}<div class="cols">
  <section class="card span2"><div class="card-h"><h3>Importantes · ${g.imp.length}</h3><span class="tiny faint">${g.imp.filter(t=>t.unread).length} não lidos</span></div>${aiOut('mail')}
@@ -1424,11 +1431,12 @@ const ACT={
   if(ok){if(op==='read'){t.unread=false;t.labels=t.labels.filter(x=>x!=='UNREAD')}else MAIL.main=MAIL.main.filter(x=>x.id!==t.id);toast(op==='read'?'Marcado como lido.':'Arquivado.');render()}else el.disabled=false},
  mailTask:el=>{const t=findMail(el.dataset.id);if(t)taskForm({mode:'new',date:today(),type:'pessoal',title:t.subject.slice(0,80)})},
  mailSender:el=>{const t=findMail(el.dataset.id);if(!t)return;const k=senderKey(t.sender),vip=S.mail.vip.includes(k),mu=S.mail.mute.includes(k);
+  if(alwaysImp(k)){sheet(senderName(t.sender),`<p class="small" style="margin:0">${h(k)} está na lista de remetentes sempre importantes.</p>`);return}
   sheet(senderName(t.sender),`<p class="small muted" style="margin:0">${h(k)}</p><div class="menu"><button data-a="mailVip" data-k="${h(k)}"><i style="background:var(--good)"></i><span>${vip?'Deixar de marcar como importante':'Sempre importante'}<small>E-mails deste remetente vão para Importantes</small></span></button><button data-a="mailMute" data-k="${h(k)}"><i style="background:var(--fg-3)"></i><span>${mu?'Voltar a mostrar':'Silenciar'}<small>Some de Importantes e do card da tela inicial</small></span></button></div>`)},
  mailVip:el=>{const k=el.dataset.k;S.mail.vip=S.mail.vip.includes(k)?S.mail.vip.filter(x=>x!==k):[...S.mail.vip,k];S.mail.mute=S.mail.mute.filter(x=>x!==k);save('mail');closeSheet()},
  mailMute:el=>{const k=el.dataset.k;S.mail.mute=S.mail.mute.includes(k)?S.mail.mute.filter(x=>x!==k):[...S.mail.mute,k];S.mail.vip=S.mail.vip.filter(x=>x!==k);save('mail');closeSheet()},
- mailTrashSender:async el=>{if(!armed(el))return;const k=el.dataset.k;const ids=(MAIL.promo||[]).filter(t=>senderKey(t.sender)===k).map(t=>t.id);await mailTrash(ids)},
- mailTrashAll:async el=>{if(!armed(el))return;await mailTrash((MAIL.promo||[]).map(t=>t.id))},
+ mailTrashSender:async el=>{if(!armed(el))return;const k=el.dataset.k;const ids=promoList().filter(t=>senderKey(t.sender)===k).map(t=>t.id);await mailTrash(ids)},
+ mailTrashAll:async el=>{if(!armed(el))return;await mailTrash(promoList().map(t=>t.id))},
  mailAI:()=>{const imp=mailGroups().imp.slice(0,30).map(t=>`- ${mailWhen(t.date)} | ${senderName(t.sender)} <${senderKey(t.sender)}> | ${t.subject} | ${t.snippet.slice(0,220)}${t.unread?' | NÃO LIDO':''}`).join('\n');
   aiText('mail',`${PERSONA}\n\nHoje é ${dLong(today())}. Estes são os e-mails que o app classificou como importantes na caixa de entrada dela (data | remetente | assunto | trecho):\n${imp||'(nenhum)'}\n\nTAREFA: diga em até 150 palavras o que realmente pede ação dela, em ordem de urgência, com prazo quando houver (ex.: inscrição, nota fiscal, pagamento, prova, mudança de regra profissional). Depois, em uma linha, o que pode ser ignorado. Formato: lista curta com "o quê → o que fazer". Não invente prazos que não estão nos trechos.`)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
