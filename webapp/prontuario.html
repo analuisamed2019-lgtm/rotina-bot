@@ -729,7 +729,10 @@ function monthMoney(m){
  const iv=inv.reduce((a,e)=>a+e.v,0);
  const ivTot=S.money.inv.filter(e=>ym(e.date)<=m).reduce((a,e)=>a+e.v,0);
  const hrs=sh.reduce((a,s)=>a+shiftHours(s),0);
- return {sh,inc,incDone,fixed,fx,exp,sup,inv,iv,ivTot,hrs,saldo:inc-fx-sup-iv};
+ const ce=S.card.entries.filter(e=>e.cyc===m).sort((a,b)=>a.date.localeCompare(b.date)||a.ts-b.ts);
+ const cf=[...ce].reverse().find(e=>e.final)||ce[ce.length-1]||null;
+ const fat=cf?cf.v:0,fatFinal=!!(cf&&cf.final),fatOk=!!cf;
+ return {sh,inc,incDone,fixed,fx,exp,sup,inv,iv,ivTot,hrs,fat,fatFinal,fatOk,saldo:inc-fx-iv-fat};
 }
 
 /* ---------- UI: estado de navegação ---------- */
@@ -881,7 +884,7 @@ function cMoneyMini(){
  return `<section class="card" aria-label="Dinheiro do mês"><div class="card-h"><h3>Dinheiro · ${MOL[P(today()).getMonth()]}</h3><button class="link" data-a="tab" data-v="dinheiro">Abrir</button></div>
  <div class="kv"><span>A receber (plantões)</span><b>${brl(m.inc)}</b></div>
  <div class="kv"><span>Gastos fixos</span><b>${brl(m.fx)}</b></div>
- <div class="kv"><span>Supérfluos</span><b>${brl(m.sup)}</b></div>
+ <div class="kv"><span>Fatura do cartão${m.fatOk&&!m.fatFinal?' (parcial)':''}</span><b>${m.fatOk?brl(m.fat):'–'}</b></div>
  <div class="kv"><span>Investido</span><b>${brl(m.iv)}</b></div>
  <div class="kv total"><span>Saldo previsto</span><b class="${m.saldo>=0?'pos':'neg'}">${brl(m.saldo)}</b></div>
  ${(()=>{const cyc=cycleOf(today()),c=cardInfo(cyc);return `<button class="kv" data-a="cardOpen" style="width:100%;text-align:left;margin-top:4px"><span>Fatura · fecha ${dLabel(c.cd)}</span><b>${c.val!=null?brl(c.val):'registrar'}${c.gap!=null?` <span class="${c.gap>=0?'pos':'neg'}" style="font-weight:600">· ${c.gap>=0?'faltam '+brl0(c.gap):'passou '+brl0(-c.gap)}</span>`:''}</b></button>`})()}</section>`;
@@ -933,7 +936,7 @@ function cardSection(cyc){
  <form class="inline-form" data-f="cardAdd" data-cyc="${cyc}" style="margin-top:12px"><label class="field"><span>Valor da fatura (R$)</span><input class="in" id="cdV" data-d inputmode="decimal" value="${h(D.cdV||'')}" placeholder="0,00" required></label><label class="field"><span>Data</span><input class="in" type="date" id="cdDate" value="${t>=c.st&&t<=addD(c.cd,10)?t:c.cd}"></label><label class="field" style="flex:0 0 auto;flex-direction:row;align-items:center;gap:6px;height:40px"><input type="checkbox" id="cdFinal" ${t>=c.cd?'checked':''}><span style="font-size:13px">Fatura fechada</span></label><button class="btn pri">Registrar</button></form>
  ${c.es.length?`<ul class="lst">${[...c.es].reverse().map(e=>`<li><div class="grow"><b>${brl(e.v)}</b><span class="tiny faint">${dLabel(e.date)}${e.final?' · valor final':' · parcial'}</span></div><button class="btn sm" data-a="cardDel" data-id="${e.id}">Excluir</button></li>`).join('')}</ul>`:''}
  <div class="tbl-w" style="margin-top:10px"><table><thead><tr><th>Fatura</th><th>Meta</th><th>Fechou em</th><th>Vs. meta</th></tr></thead><tbody>${hist.join('')}</tbody></table></div>
- <p class="tiny faint" style="margin:8px 0 0">A fatura é acompanhada à parte e não entra no balanço abaixo, para não contar duas vezes os gastos que você já lança como supérfluos ou fixos.</p></section>`;
+ <p class="tiny faint" style="margin:8px 0 0">O valor da fatura (final, ou o último parcial) entra no balanço do mês em que ela fecha. Os gastos fixos são pagos à parte, fora do cartão.</p></section>`;
 }
 function cardSheet(cyc,fin){
  const c=cardInfo(cyc),t=today();
@@ -946,16 +949,16 @@ function vMoney(){
  const m=monthMoney(monM),cur=monM;
  const sh=[...m.sh].sort((a,b)=>a.date.localeCompare(b.date)||a.start.localeCompare(b.start));
  const fixedAll=S.money.fixed.filter(f=>fixedValue(f,cur)!=null);
- const inc=m.inc;const out=m.fx+m.sup+m.iv;const sob=Math.max(0,inc-out);
+ const inc=m.inc;const out=m.fx+m.fat+m.iv;const sob=Math.max(0,inc-out);
  const base=Math.max(inc,out)||1;
- const seg=[['Fixos',m.fx,'--s-fix'],['Supérfluos',m.sup,'--s-sup'],['Investido',m.iv,'--s-inv'],['Sobra',sob,'--s-sob']];
+ const seg=[['Fixos',m.fx,'--s-fix'],['Cartão',m.fat,'--s-sup'],['Investido',m.iv,'--s-inv'],['Sobra',sob,'--s-sob']];
  let sentence='Cadastre plantões para ver a divisão da sua renda.';
  if(inc>0){
-  const pI=m.iv/inc,pS=m.sup/inc,pR=m.saldo/inc;
-  sentence=m.saldo>=0?`Você investiu ${pct(pI)} da renda e ainda sobram ${pct(pR)}. Os supérfluos levam ${pct(pS)} e os fixos ${pct(m.fx/inc)}.`
-   :`As saídas passam a renda em ${brl(-m.saldo)}. Os fixos levam ${pct(m.fx/inc)}, os supérfluos ${pct(pS)} e o investido ${pct(pI)}.`;
+  const pI=m.iv/inc,pS=m.fat/inc,pR=m.saldo/inc;
+  sentence=m.saldo>=0?`Você investiu ${pct(pI)} da renda e ainda sobram ${pct(pR)}. O cartão leva ${pct(pS)} e os fixos ${pct(m.fx/inc)}.`+(m.fatOk?'':' A fatura do mês ainda não foi registrada.')
+   :`As saídas passam a renda em ${brl(-m.saldo)}. Os fixos levam ${pct(m.fx/inc)}, o cartão ${pct(pS)} e o investido ${pct(pI)}.`;
  }else if(out>0)sentence=`Ainda não há plantões neste mês; as saídas somam ${brl(out)}.`;
- const hist=[];for(let i=5;i>=0;i--){const mm=addM(cur,-i);const x=monthMoney(mm);hist.push(`<tr class="${mm===cur?'cur':''}"><td>${mShort(mm)}</td><td>${brl0(x.inc)}</td><td>${brl0(x.fx)}</td><td>${brl0(x.sup)}</td><td>${brl0(x.iv)}</td><td class="${x.saldo>=0?'pos':'neg'}">${brl0(x.saldo)}</td></tr>`)}
+ const hist=[];for(let i=5;i>=0;i--){const mm=addM(cur,-i);const x=monthMoney(mm);hist.push(`<tr class="${mm===cur?'cur':''}"><td>${mShort(mm)}</td><td>${brl0(x.inc)}</td><td>${brl0(x.fx)}</td><td>${x.fatOk?brl0(x.fat)+(x.fatFinal?'':'*'):'–'}</td><td>${brl0(x.iv)}</td><td class="${x.saldo>=0?'pos':'neg'}">${brl0(x.saldo)}</td></tr>`)}
  const dDef=ym(today())===cur?today():cur+'-01';
  return `<div class="ph"><div><h1>Dinheiro</h1><div class="sub">Entradas por plantão, sem cálculo de imposto</div></div>
  <div class="pager"><button class="icon-btn" data-a="monM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><span class="lbl">${mLabel(cur)}</span><button class="icon-btn" data-a="monM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
@@ -964,7 +967,8 @@ function vMoney(){
   <div class="stats" style="margin-bottom:8px"><div class="stat"><div class="k">Previsto</div><div class="v">${brl0(m.inc)}</div><div class="s">${sh.length} plantões · ${Math.round(m.hrs)} h</div></div><div class="stat"><div class="k">Já realizado</div><div class="v">${brl0(m.incDone)}</div><div class="s">${sh.filter(shiftDone).length} concluídos</div></div></div>
   ${sh.length?`<ul class="lst">${sh.map(s=>`<li><span class="dot" style="background:${T('plantao').c}"></span><button class="grow" data-a="editShift" data-id="${s.id}"><b>${dLabel(s.date)} · ${kindName(s.kind)}</b><span class="tiny faint">${hm(s.start)}–${hm(s.end)} · ${f1(shiftHours(s)).replace(',0','')} h${shiftNight(s)?' · noturno':''}</span></button>${shiftDone(s)?'<span class="pill ok">realizado</span>':''}<span class="v">${brl(shiftValue(s))}</span></li>`).join('')}</ul>`:'<p class="empty">Nenhum plantão neste mês.</p>'}
  </section>
- <section class="card"><div class="card-h"><h3>Gastos supérfluos</h3><span class="num" style="font-weight:700">${brl(m.sup)}</span></div>
+ <section class="card"><div class="card-h"><h3>Supérfluos · anotação</h3><span class="num" style="font-weight:700">${brl(m.sup)}</span></div>
+  <p class="tiny faint" style="margin:-4px 0 10px">Só para você saber quanto foi em supérfluos no mês. Esses gastos já entram na fatura do cartão, então não descontam do saldo.</p>
   <form class="inline-form" data-f="addExp"><label class="field w2"><span>Nome</span><input class="in" id="mxName" data-d value="${h(D.mxName||'')}" placeholder="Ex.: delivery" required></label><label class="field"><span>Valor (R$)</span><input class="in" id="mxV" data-d inputmode="decimal" value="${h(D.mxV||'')}" placeholder="0,00" required></label><label class="field"><span>Data</span><input class="in" type="date" id="mxDate" value="${dDef}"></label><button class="btn pri">Adicionar</button></form>
   ${m.exp.length?`<ul class="lst">${[...m.exp].sort((a,b)=>b.date.localeCompare(a.date)).map(e=>`<li><div class="grow"><b>${h(e.name)}</b><span class="tiny faint">${dLabel(e.date)}</span></div><span class="v">${brl(e.v)}</span><button class="btn sm" data-a="delExp" data-id="${e.id}" aria-label="Excluir ${h(e.name)}">Excluir</button></li>`).join('')}</ul>`:'<p class="empty">Sem supérfluos neste mês.</p>'}
  </section>
@@ -979,11 +983,11 @@ function vMoney(){
 ${cardSection(cur)}
  <section class="card span2" aria-label="Balanço do mês"><div class="card-h"><h3>Balanço de ${mLabel(cur)}</h3></div>
   <div class="row" style="align-items:center;justify-content:space-between"><div><div class="tiny muted">Saldo do mês</div><div class="saldo ${m.saldo>=0?'pos':'neg'}">${brl(m.saldo)}</div></div>
-  <div class="small muted num" style="text-align:right">${brl(inc)} entradas<br>− ${brl(m.fx)} fixos − ${brl(m.sup)} supérfluos − ${brl(m.iv)} investido</div></div>
+  <div class="small muted num" style="text-align:right">${brl(inc)} entradas<br>− ${brl(m.fx)} fixos − ${brl(m.fat)} cartão${m.fatOk?(m.fatFinal?'':' (parcial)'):' (sem registro)'} − ${brl(m.iv)} investido</div></div>
   <div class="split" role="img" aria-label="Divisão da renda">${seg.filter(s=>s[1]>0).map(s=>`<i style="width:${s[1]/base*100}%;background:var(${s[2]})" title="${s[0]}: ${brl(s[1])}"></i>`).join('')||'<i style="width:100%;background:var(--surface-2)"></i>'}</div>
   <div class="legend" style="margin-top:0">${seg.map(s=>`<span><i style="background:var(${s[2]})"></i>${s[0]} ${brl0(s[1])}${inc>0?` · ${pct(s[1]/inc)}`:''}</span>`).join('')}</div>
-  <p class="sentence">${h(sentence)}</p>
-  <div class="tbl-w" style="margin-top:12px"><table><thead><tr><th>Mês</th><th>Entradas</th><th>Fixos</th><th>Supérfluos</th><th>Investido</th><th>Saldo</th></tr></thead><tbody>${hist.join('')}</tbody></table></div>
+  <p class="sentence">${h(sentence)}</p>${hist.some(r=>r.includes('*'))?'<p class="tiny faint" style="margin:4px 0 0">* fatura ainda parcial (não fechada).</p>':''}
+  <div class="tbl-w" style="margin-top:12px"><table><thead><tr><th>Mês</th><th>Entradas</th><th>Fixos</th><th>Cartão</th><th>Investido</th><th>Saldo</th></tr></thead><tbody>${hist.join('')}</tbody></table></div>
  </section></div>`;
 }
 
@@ -1088,7 +1092,7 @@ function aiContext(){
  L.push(`Esta semana: academia ${sw.academia[0]}/${sw.academia[1]}, yoga ${sw.yoga[0]}/${sw.yoga[1]}, estudo ${sw.estudo[0]}/${sw.estudo[1]}.`);
  const m=monthMoney(ym(t));
  {const ci=cardInfo(cycleOf(t));L.push(`\nFATURA DO CARTÃO (fecha ${dLabel(ci.cd)}): ${ci.val!=null?brl(ci.val)+(ci.fin?' (fechada)':' até agora'):'sem registro'}; meta ${ci.meta!=null?brl(ci.meta)+` (renda prevista − fixos − investimento mínimo de ${brl(S.card.investT)})`:'sem renda prevista'}${ci.gap!=null?`; ${ci.gap>=0?'ainda pode gastar '+brl(ci.gap):'passou da meta em '+brl(-ci.gap)}`:''}${ci.proj!=null?`; no ritmo atual fecha em ~${brl(ci.proj)}`:''}.`)}
- L.push(`\nFINANCEIRO DE ${mLabel(ym(t)).toUpperCase()}: entradas previstas ${brl(m.inc)} (${m.sh.length} plantões, ${brl(m.incDone)} já realizados), fixos ${brl(m.fx)}, supérfluos ${brl(m.sup)}, investido ${brl(m.iv)}, saldo previsto ${brl(m.saldo)}. Valores por 12 h: Tutora ${brl(S.settings.rates.tutora)}, Porta ${brl(S.settings.rates.porta)}. Não calcular imposto.`);
+ L.push(`\nFINANCEIRO DE ${mLabel(ym(t)).toUpperCase()}: entradas previstas ${brl(m.inc)} (${m.sh.length} plantões, ${brl(m.incDone)} já realizados), fixos (pagos fora do cartão) ${brl(m.fx)}, fatura do cartão ${m.fatOk?brl(m.fat)+(m.fatFinal?' (fechada)':' (parcial)'):'sem registro'}, investido ${brl(m.iv)}, saldo previsto (entradas − fixos − cartão − investido) ${brl(m.saldo)}. Supérfluos anotados no mês (já incluídos no cartão): ${brl(m.sup)}. Valores por 12 h: Tutora ${brl(S.settings.rates.tutora)}, Porta ${brl(S.settings.rates.porta)}. Não calcular imposto.`);
  return L.join('\n');
 }
 const AI_ERR={not_granted:'Você não autorizou o uso do Claude nesta página.',sampling_disabled:'O Claude não está disponível para esta conta.',rate_limited:'Muitas perguntas seguidas. Tente de novo em alguns minutos.',session_expired:'Sua sessão expirou. Entre de novo no claude.ai.',refused:'O Claude não respondeu a este pedido. Tente reformular.',empty_completion:'A resposta veio vazia. Tente pedir de outro jeito.',invalid_json:'Não consegui ler a resposta. Tente de novo.',prompt_too_large:'O texto é grande demais. Cole uma parte por vez.',image_rejected:'Não consegui usar essa imagem. Tente um print em PNG ou JPG.'};
@@ -1300,7 +1304,7 @@ const ACT={
  tab:el=>{tab=el.dataset.v;try{localStorage.setItem(LS+'-tab',tab)}catch(e){}render();window.scrollTo(0,0)},
  settings:()=>settingsSheet(),
  closeSheet:()=>closeSheet(),
- fab:()=>sheet('Adicionar',`<div class="menu"><button data-a="newTask"><i style="background:${T('pessoal').c}"></i><span>Tarefa ou evento<small>Estudo, treino, pessoal… com repetição opcional</small></span></button><button data-a="newShift"><i style="background:${T('plantao').c}"></i><span>Plantão<small>Data, horário e tipo; valor calculado</small></span></button><button data-a="newExp"><i style="background:var(--s-sup)"></i><span>Gasto supérfluo<small>Nome, valor e data</small></span></button><button data-a="cardOpen"><i style="background:var(--s-fix)"></i><span>Valor da fatura<small>Atualizar ou registrar o fechamento</small></span></button></div>`),
+ fab:()=>sheet('Adicionar',`<div class="menu"><button data-a="newTask"><i style="background:${T('pessoal').c}"></i><span>Tarefa ou evento<small>Estudo, treino, pessoal… com repetição opcional</small></span></button><button data-a="newShift"><i style="background:${T('plantao').c}"></i><span>Plantão<small>Data, horário e tipo; valor calculado</small></span></button><button data-a="newExp"><i style="background:var(--s-sup)"></i><span>Gasto supérfluo<small>Anotação: já entra na fatura</small></span></button><button data-a="cardOpen"><i style="background:var(--s-fix)"></i><span>Valor da fatura<small>Atualizar ou registrar o fechamento</small></span></button></div>`),
  newTask:el=>taskForm({mode:'new',date:el.dataset.ds||(tab==='semana'&&wk!==monday(today())?wk:today()),type:el.dataset.type||'pessoal'}),
  newShift:el=>shiftForm(null,el&&el.dataset&&el.dataset.ds),
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
