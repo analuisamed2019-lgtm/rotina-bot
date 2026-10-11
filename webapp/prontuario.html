@@ -451,7 +451,7 @@ const KEYS=['settings','notes','tasks','series','shifts','money','energy','notic
 const DEF=()=>({
  settings:{types:JSON.parse(JSON.stringify(DEF_TYPES)),rates:{tutora:2200,porta:2000},theme:'system'},
  notes:[],tasks:[],series:JSON.parse(JSON.stringify(SEED_SERIES)),shifts:[],
- money:{exp:[],fixed:[],inv:[]},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES)),card:{closeDay:21,entries:[],metas:[],investT:5000}
+ money:{exp:[],fixed:[],inv:[],plan:{}},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES)),card:{closeDay:21,entries:[],metas:[],investT:5000,planFrom:'2026-10'}
 });
 const LS='prontuario-v1';
 let S=DEF();
@@ -464,7 +464,7 @@ function fixShape(){
  S.settings.types=Object.assign(JSON.parse(JSON.stringify(DEF_TYPES)),S.settings.types||{});
  S.settings.rates=Object.assign({tutora:2200,porta:2000},S.settings.rates||{});
  for(const k of ['exp','fixed','inv']) if(!Array.isArray(S.money[k])) S.money[k]=[];
- if(!(S.card.closeDay>=1))S.card.closeDay=21;for(const k of ['entries','metas'])if(!Array.isArray(S.card[k]))S.card[k]=[];if(!(S.card.investT>=0))S.card.investT=5000;
+ if(!(S.card.closeDay>=1))S.card.closeDay=21;for(const k of ['entries','metas'])if(!Array.isArray(S.card[k]))S.card[k]=[];if(!(S.card.investT>=0))S.card.investT=5000;if(!S.card.planFrom)S.card.planFrom='2026-10';if(!S.money.plan||typeof S.money.plan!=='object'||Array.isArray(S.money.plan))S.money.plan={};
  let ch=false;
  for(const r of S.series)if(r.wk==='A'||r.wk==='B'){if(r.rule==='biweekly')r.rule=r.wk==='A'?'odd':'even';delete r.wk;ch=true}
  for(const r of S.rules)if(r.wk){r.par=r.wk==='A'?'odd':'even';delete r.wk;r.regen=true;ch=true}
@@ -700,6 +700,10 @@ function fixedValue(f,m){
  let v=null;for(const e of [...(f.hist||[])].sort((a,b)=>a.from.localeCompare(b.from)))if(e.from<=m)v=e.v;
  return v;
 }
+/* ---------- aporte mensal: pergunta a partir do dia 25 (dia de receber) ---------- */
+function invAskMonth(){const t=today();const m=P(t).getDate()>=25?ym(t):addM(ym(t),-1);if(m<S.card.planFrom||(S.money.plan[m]||{}).st)return null;
+ const real=S.money.inv.filter(e=>ym(e.date)===m).reduce((a,e)=>a+e.v,0);return real>=S.card.investT?null:m}
+const invDateFor=m=>ym(today())===m?today():`${m}-25`;
 /* ---------- fatura do cartão ---------- */
 // ciclo = mês em que a fatura fecha; fecha no dia closeDay (21) e começa no dia seguinte ao fechamento anterior
 const daysIn=(y,m)=>new Date(y,m,0).getDate();
@@ -708,7 +712,7 @@ const cycleOf=ds=>ds<=closeDate(ym(ds))?ym(ds):addM(ym(ds),1);
 const cycleStart=cyc=>addD(closeDate(addM(cyc,-1)),1);
 const cardEntries=cyc=>S.card.entries.filter(e=>e.cyc===cyc).sort((a,b)=>a.date.localeCompare(b.date)||a.ts-b.ts);
 // meta variável: renda prevista do mês − gastos fixos − investimento (5 mil, ou o que já foi aportado se for mais)
-function cardBudget(cyc){const m=monthMoney(cyc);const inv=Math.max(S.card.investT,m.iv);return {inc:m.inc,fx:m.fx,inv,iv:m.iv,meta:m.inc>0?Math.max(0,m.inc-m.fx-inv):null}}
+function cardBudget(cyc){const m=monthMoney(cyc);const inv=m.iv;return {inc:m.inc,fx:m.fx,inv,iv:m.iv,pend:m.ivPending,meta:m.inc>0?Math.max(0,m.inc-m.fx-inv):null}}
 const cardMeta=cyc=>cardBudget(cyc).meta;
 function cardInfo(cyc){
  const es=cardEntries(cyc),last=es[es.length-1]||null,fin=[...es].reverse().find(e=>e.final)||null;
@@ -726,13 +730,17 @@ function monthMoney(m){
  const exp=S.money.exp.filter(e=>ym(e.date)===m);
  const sup=exp.reduce((a,e)=>a+e.v,0);
  const inv=S.money.inv.filter(e=>ym(e.date)===m);
- const iv=inv.reduce((a,e)=>a+e.v,0);
+ // aporte mensal planejado (5 mil) conta no mês até ser confirmado no dia 25; "não investi" zera o previsto
+ const ivReal=inv.reduce((a,e)=>a+e.v,0);
+ const st=(S.money.plan[m]||{}).st;
+ const planned=m>=S.card.planFrom&&!st?S.card.investT:0;
+ const iv=Math.max(ivReal,planned),ivPending=planned>ivReal;
  const ivTot=S.money.inv.filter(e=>ym(e.date)<=m).reduce((a,e)=>a+e.v,0);
  const hrs=sh.reduce((a,s)=>a+shiftHours(s),0);
  const ce=S.card.entries.filter(e=>e.cyc===m).sort((a,b)=>a.date.localeCompare(b.date)||a.ts-b.ts);
  const cf=[...ce].reverse().find(e=>e.final)||ce[ce.length-1]||null;
  const fat=cf?cf.v:0,fatFinal=!!(cf&&cf.final),fatOk=!!cf;
- return {sh,inc,incDone,fixed,fx,exp,sup,inv,iv,ivTot,hrs,fat,fatFinal,fatOk,saldo:inc-fx-iv-fat};
+ return {sh,inc,incDone,fixed,fx,exp,sup,inv,iv,ivReal,ivPending,ivSt:st||null,ivTot,hrs,fat,fatFinal,fatOk,saldo:inc-fx-iv-fat};
 }
 
 /* ---------- UI: estado de navegação ---------- */
@@ -858,6 +866,7 @@ function cNotices(){
    if(diffD(closeDate(lastClosed),t)<=4&&!cardInfo(lastClosed).fin)parts.push(`<div class="notice"><div class="alert"><i></i><span>A fatura de ${MOL[+lastClosed.slice(5)-1]} fechou em ${dLabel(closeDate(lastClosed))}. Quanto ficou?</span></div><div class="btns"><button class="btn sm" data-a="cardOpen" data-final="1" data-cyc="${lastClosed}">Registrar valor final</button></div></div>`);
    else if(day<=3&&!S.card.entries.some(e=>ym(e.date)===ym(t)))parts.push(`<div class="notice"><div class="alert"><i></i><span>Início do mês: quanto está a fatura que fecha em ${dLabel(closeDate(cyc))}?</span></div><div class="btns"><button class="btn sm" data-a="cardOpen">Atualizar fatura</button></div></div>`);}
  }
+ {const im=invAskMonth();if(im)parts.push(`<div class="notice"><p>Dia de receber: você investiu os <b>${brl0(S.card.investT)}</b> de ${MOL[+im.slice(5)-1]}?</p><div class="btns"><button class="btn sm pri" data-a="invYes" data-m="${im}">Sim, investi</button><button class="btn sm" data-a="invOther" data-m="${im}">Outro valor</button><button class="btn sm" data-a="invNo" data-m="${im}">Não investi</button></div></div>`)}
  const tm=addD(t,1);const capT=capacity(tm),ldT=load(tm);
  if(longShiftOn(tm))parts.push(`<div class="notice"><div class="alert"><i></i><span>Amanhã tem plantão longo: nada de tarefas extras.</span></div></div>`);
  else if(capT>0&&ldT>=capT)parts.push(`<div class="notice"><div class="alert"><i></i><span>Amanhã já está no limite (${ldT} de ${capT} tarefas). Evite adicionar mais.</span></div></div>`);
@@ -977,13 +986,14 @@ function vMoney(){
  </section>
  <section class="card"><div class="card-h"><h3>Investimentos</h3></div>
   <form class="inline-form" data-f="addInv"><label class="field w2"><span>Descrição (opcional)</span><input class="in" id="ivDesc" data-d value="${h(D.ivDesc||'')}" placeholder="Ex.: Tesouro IPCA"></label><label class="field"><span>Valor (R$)</span><input class="in" id="ivV" data-d inputmode="decimal" value="${h(D.ivV||'')}" placeholder="0,00" required></label><label class="field"><span>Data</span><input class="in" type="date" id="ivDate" value="${dDef}"></label><button class="btn pri">Aportar</button></form>
-  <div class="stats" style="margin-bottom:6px"><div class="stat"><div class="k">No mês</div><div class="v">${brl0(m.iv)}</div><div class="s">${inc>0?pct(m.iv/inc)+' da renda · ':''}meta ${brl0(S.card.investT)}${m.iv>=S.card.investT?' ✓':` · faltam ${brl0(S.card.investT-m.iv)}`}</div></div><div class="stat"><div class="k">Total aportado</div><div class="v">${brl0(m.ivTot)}</div><div class="s">até ${mShort(cur)}</div></div></div>
+  <div class="stats" style="margin-bottom:6px"><div class="stat"><div class="k">No mês${m.ivPending?' (previsto)':''}</div><div class="v">${brl0(m.iv)}</div><div class="s">${m.ivPending?`planejado · confirmar no dia 25${m.ivReal?` · ${brl0(m.ivReal)} já lançado`:''}`:m.ivSt==='skip'?'você marcou que não investiu':`${inc>0?pct(m.iv/inc)+' da renda · ':''}confirmado ✓`}</div></div><div class="stat"><div class="k">Total aportado</div><div class="v">${brl0(m.ivTot)}</div><div class="s">confirmado até ${mShort(cur)}</div></div></div>
+  <div class="btns" style="margin-bottom:8px">${cur>=S.card.planFrom&&(m.ivPending||m.ivSt)?`<button class="btn sm" data-a="invAsk" data-m="${cur}">${m.ivPending?'Confirmar aporte do mês':'Rever confirmação'}</button>`:''}<button class="btn sm" data-a="cardMeta" data-cyc="${cur}">Aporte mensal: ${brl0(S.card.investT)}</button></div>
   ${m.inv.length?`<ul class="lst">${m.inv.map(e=>`<li><div class="grow"><b>${h(e.desc||'Aporte')}</b><span class="tiny faint">${dLabel(e.date)}</span></div><span class="v">${brl(e.v)}</span><button class="btn sm" data-a="delInv" data-id="${e.id}">Excluir</button></li>`).join('')}</ul>`:''}
  </section>
 ${cardSection(cur)}
  <section class="card span2" aria-label="Balanço do mês"><div class="card-h"><h3>Balanço de ${mLabel(cur)}</h3></div>
   <div class="row" style="align-items:center;justify-content:space-between"><div><div class="tiny muted">Saldo do mês</div><div class="saldo ${m.saldo>=0?'pos':'neg'}">${brl(m.saldo)}</div></div>
-  <div class="small muted num" style="text-align:right">${brl(inc)} entradas<br>− ${brl(m.fx)} fixos − ${brl(m.fat)} cartão${m.fatOk?(m.fatFinal?'':' (parcial)'):' (sem registro)'} − ${brl(m.iv)} investido</div></div>
+  <div class="small muted num" style="text-align:right">${brl(inc)} entradas<br>− ${brl(m.fx)} fixos − ${brl(m.fat)} cartão${m.fatOk?(m.fatFinal?'':' (parcial)'):' (sem registro)'} − ${brl(m.iv)} investido${m.ivPending?' (previsto)':''}</div></div>
   <div class="split" role="img" aria-label="Divisão da renda">${seg.filter(s=>s[1]>0).map(s=>`<i style="width:${s[1]/base*100}%;background:var(${s[2]})" title="${s[0]}: ${brl(s[1])}"></i>`).join('')||'<i style="width:100%;background:var(--surface-2)"></i>'}</div>
   <div class="legend" style="margin-top:0">${seg.map(s=>`<span><i style="background:var(${s[2]})"></i>${s[0]} ${brl0(s[1])}${inc>0?` · ${pct(s[1]/inc)}`:''}</span>`).join('')}</div>
   <p class="sentence">${h(sentence)}</p>${hist.some(r=>r.includes('*'))?'<p class="tiny faint" style="margin:4px 0 0">* fatura ainda parcial (não fechada).</p>':''}
@@ -1092,7 +1102,7 @@ function aiContext(){
  L.push(`Esta semana: academia ${sw.academia[0]}/${sw.academia[1]}, yoga ${sw.yoga[0]}/${sw.yoga[1]}, estudo ${sw.estudo[0]}/${sw.estudo[1]}.`);
  const m=monthMoney(ym(t));
  {const ci=cardInfo(cycleOf(t));L.push(`\nFATURA DO CARTÃO (fecha ${dLabel(ci.cd)}): ${ci.val!=null?brl(ci.val)+(ci.fin?' (fechada)':' até agora'):'sem registro'}; meta ${ci.meta!=null?brl(ci.meta)+` (renda prevista − fixos − investimento mínimo de ${brl(S.card.investT)})`:'sem renda prevista'}${ci.gap!=null?`; ${ci.gap>=0?'ainda pode gastar '+brl(ci.gap):'passou da meta em '+brl(-ci.gap)}`:''}${ci.proj!=null?`; no ritmo atual fecha em ~${brl(ci.proj)}`:''}.`)}
- L.push(`\nFINANCEIRO DE ${mLabel(ym(t)).toUpperCase()}: entradas previstas ${brl(m.inc)} (${m.sh.length} plantões, ${brl(m.incDone)} já realizados), fixos (pagos fora do cartão) ${brl(m.fx)}, fatura do cartão ${m.fatOk?brl(m.fat)+(m.fatFinal?' (fechada)':' (parcial)'):'sem registro'}, investido ${brl(m.iv)}, saldo previsto (entradas − fixos − cartão − investido) ${brl(m.saldo)}. Supérfluos anotados no mês (já incluídos no cartão): ${brl(m.sup)}. Valores por 12 h: Tutora ${brl(S.settings.rates.tutora)}, Porta ${brl(S.settings.rates.porta)}. Não calcular imposto.`);
+ L.push(`\nFINANCEIRO DE ${mLabel(ym(t)).toUpperCase()}: entradas previstas ${brl(m.inc)} (${m.sh.length} plantões, ${brl(m.incDone)} já realizados), fixos (pagos fora do cartão) ${brl(m.fx)}, fatura do cartão ${m.fatOk?brl(m.fat)+(m.fatFinal?' (fechada)':' (parcial)'):'sem registro'}, investido ${brl(m.iv)}${m.ivPending?' (aporte mensal previsto, ainda não confirmado)':''}, saldo previsto (entradas − fixos − cartão − investido) ${brl(m.saldo)}. Supérfluos anotados no mês (já incluídos no cartão): ${brl(m.sup)}. Valores por 12 h: Tutora ${brl(S.settings.rates.tutora)}, Porta ${brl(S.settings.rates.porta)}. Não calcular imposto.`);
  return L.join('\n');
 }
 const AI_ERR={not_granted:'Você não autorizou o uso do Claude nesta página.',sampling_disabled:'O Claude não está disponível para esta conta.',rate_limited:'Muitas perguntas seguidas. Tente de novo em alguns minutos.',session_expired:'Sua sessão expirou. Entre de novo no claude.ai.',refused:'O Claude não respondeu a este pedido. Tente reformular.',empty_completion:'A resposta veio vazia. Tente pedir de outro jeito.',invalid_json:'Não consegui ler a resposta. Tente de novo.',prompt_too_large:'O texto é grande demais. Cole uma parte por vez.',image_rejected:'Não consegui usar essa imagem. Tente um print em PNG ou JPG.'};
@@ -1307,11 +1317,16 @@ const ACT={
  fab:()=>sheet('Adicionar',`<div class="menu"><button data-a="newTask"><i style="background:${T('pessoal').c}"></i><span>Tarefa ou evento<small>Estudo, treino, pessoal… com repetição opcional</small></span></button><button data-a="newShift"><i style="background:${T('plantao').c}"></i><span>Plantão<small>Data, horário e tipo; valor calculado</small></span></button><button data-a="newExp"><i style="background:var(--s-sup)"></i><span>Gasto supérfluo<small>Anotação: já entra na fatura</small></span></button><button data-a="cardOpen"><i style="background:var(--s-fix)"></i><span>Valor da fatura<small>Atualizar ou registrar o fechamento</small></span></button></div>`),
  newTask:el=>taskForm({mode:'new',date:el.dataset.ds||(tab==='semana'&&wk!==monday(today())?wk:today()),type:el.dataset.type||'pessoal'}),
  newShift:el=>shiftForm(null,el&&el.dataset&&el.dataset.ds),
+ invYes:el=>{const m=el.dataset.m;const real=S.money.inv.filter(e=>ym(e.date)===m).reduce((a,e)=>a+e.v,0);const add=Math.max(0,S.card.investT-real);if(add>0)S.money.inv.push({id:nid(),desc:'Aporte mensal',v:add,date:invDateFor(m),ts:Date.now()});S.money.plan[m]={st:'done',at:Date.now()};save('money');closeSheet();toast('Aporte confirmado.')},
+ invNo:el=>{S.money.plan[el.dataset.m]={st:'skip',at:Date.now()};save('money');closeSheet();toast('Anotado: sem aporte neste mês. O saldo foi recalculado.')},
+ invOther:el=>{const m=el.dataset.m;sheet('Quanto você investiu?',`<form class="sh-b" data-f="invOther" data-m="${m}"><div class="grid2"><label class="field"><span>Valor (R$)</span><input class="in" id="ioV" inputmode="decimal" required placeholder="0,00"></label><label class="field"><span>Data</span><input class="in" type="date" id="ioDate" value="${invDateFor(m)}"></label></div><p class="tiny faint" style="margin:0">Substitui o previsto de ${brl(S.card.investT)} em ${mLabel(m)}.</p><div class="btns"><button class="btn pri">Confirmar</button></div></form>`)},
+ invAsk:el=>{const m=el.dataset.m,st=(S.money.plan[m]||{}).st;sheet(`Aporte de ${MOL[+m.slice(5)-1]}`,`<p class="small" style="margin:0">${st==='done'?'Você confirmou o aporte deste mês.':st==='skip'?'Você marcou que não investiu neste mês.':`O app está contando ${brl(S.card.investT)} como investidos neste mês.`}</p><div class="btns"><button class="btn pri" data-a="invYes" data-m="${m}">Investi ${brl0(S.card.investT)}</button><button class="btn" data-a="invOther" data-m="${m}">Outro valor</button><button class="btn" data-a="invNo" data-m="${m}">Não investi</button>${st?`<button class="btn" data-a="invReset" data-m="${m}">Voltar a "previsto"</button>`:''}</div>`)},
+ invReset:el=>{delete S.money.plan[el.dataset.m];save('money');closeSheet()},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
  cardDel:el=>{if(!armed(el))return;S.card.entries=S.card.entries.filter(e=>e.id!==el.dataset.id);save('card')},
  cardMeta:el=>{const cyc=el.dataset.cyc,b=cardBudget(cyc);sheet('Meta da fatura',`<div class="sh-sec"><p class="small muted" style="margin:0">A meta muda sozinha a cada mês: é o que sobra da renda depois dos fixos e do investimento.</p>
-  <div class="kv"><span>Plantões previstos em ${MOL[+cyc.slice(5)-1]}</span><b>${brl(b.inc)}</b></div><div class="kv"><span>− Gastos fixos</span><b>${brl(b.fx)}</b></div><div class="kv"><span>− Investimento${b.iv>S.card.investT?' (já aportado)':''}</span><b>${brl(b.inv)}</b></div><div class="kv total"><span>= Meta da fatura</span><b>${b.meta!=null?brl(b.meta):'–'}</b></div></div>
-  <form class="sh-sec" data-f="cardInvT"><h4>Investimento mínimo por mês</h4><div class="row"><label class="field"><input class="in" id="ciT" inputmode="decimal" value="${String(S.card.investT).replace('.',',')}" aria-label="Investimento mínimo por mês (R$)"></label><button class="btn pri">Salvar</button></div><p class="tiny faint" style="margin:0">Se a renda prevista mudar (plantão extra ou cancelado), a meta acompanha.</p></form>`)},
+  <div class="kv"><span>Plantões previstos em ${MOL[+cyc.slice(5)-1]}</span><b>${brl(b.inc)}</b></div><div class="kv"><span>− Gastos fixos</span><b>${brl(b.fx)}</b></div><div class="kv"><span>− Investimento${b.pend?' (previsto)':''}</span><b>${brl(b.inv)}</b></div><div class="kv total"><span>= Meta da fatura</span><b>${b.meta!=null?brl(b.meta):'–'}</b></div></div>
+  <form class="sh-sec" data-f="cardInvT"><h4>Aporte mensal planejado</h4><div class="row"><label class="field"><input class="in" id="ciT" inputmode="decimal" value="${String(S.card.investT).replace('.',',')}" aria-label="Aporte mensal planejado (R$)"></label><button class="btn pri">Salvar</button></div><p class="tiny faint" style="margin:0">Se a renda prevista mudar (plantão extra ou cancelado), a meta acompanha.</p></form>`)},
  newExp:()=>sheet('Gasto supérfluo',`<form class="sh-b" data-f="expSheet"><label class="field"><span>Nome</span><input class="in" id="esName" required placeholder="Ex.: café"></label><div class="grid2"><label class="field"><span>Valor (R$)</span><input class="in" id="esV" inputmode="decimal" required placeholder="0,00"></label><label class="field"><span>Data</span><input class="in" type="date" id="esDate" value="${today()}" required></label></div><div class="btns"><button class="btn pri">Adicionar</button></div></form>`),
  wk:el=>{const v=+el.dataset.v;wk=v===0?monday(today()):addD(wk,7*v);calM=ym(addD(wk,3));render()},
  calM:el=>{calM=addM(calM,+el.dataset.v);render()},
@@ -1430,7 +1445,8 @@ const FORMS={
  },
  cardAdd:f=>{const v=parseBRL(D.cdV);if(!(v>=0)||D.cdV==null||D.cdV===''){toast('Informe o valor da fatura (ex.: 13.000,00).');return}const date=$('#cdDate').value||today();S.card.entries.push({id:nid(),cyc:f.dataset.cyc,date,v,final:$('#cdFinal').checked,ts:Date.now()});D.cdV='';save('card');toast('Fatura registrada.')},
  cardSheet:f=>{const v=parseBRL($('#csV').value);if(!(v>=0)){toast('Informe o valor (ex.: 13.000,00).');return}const date=$('#csDate').value||today();const fin=$('#csFinal').checked;const cyc=fin?f.dataset.cyc:cycleOf(date);S.card.entries.push({id:nid(),cyc,date,v,final:fin,ts:Date.now()});save('card');closeSheet();toast('Fatura registrada.')},
- cardInvT:f=>{const v=parseBRL($('#ciT').value);if(!(v>=0)){toast('Valor inválido.');return}S.card.investT=v;save('card');closeSheet();toast('Investimento mínimo salvo.')},
+ invOther:f=>{const m=f.dataset.m,v=parseBRL($('#ioV').value);if(!(v>=0)){toast('Informe o valor (ex.: 3.500,00).');return}if(v>0)S.money.inv.push({id:nid(),desc:'Aporte mensal',v,date:$('#ioDate').value||invDateFor(m),ts:Date.now()});S.money.plan[m]={st:v>0?'done':'skip',at:Date.now()};save('money');closeSheet();toast('Aporte registrado.')},
+ cardInvT:f=>{const v=parseBRL($('#ciT').value);if(!(v>=0)){toast('Valor inválido.');return}S.card.investT=v;save('card');closeSheet();toast('Aporte mensal salvo.')},
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
  addExp:f=>{const v=parseBRL(D.mxV);const name=(D.mxName||'').trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#mxDate').value||today()});D.mxName='';D.mxV='';save('money')},
  addInv:f=>{const v=parseBRL(D.ivV);if(!(v>0)){toast('Informe o valor do aporte (ex.: 1.500,00).');return}S.money.inv.push({id:nid(),desc:(D.ivDesc||'').trim(),v,date:$('#ivDate').value||today()});D.ivDesc='';D.ivV='';save('money')},
