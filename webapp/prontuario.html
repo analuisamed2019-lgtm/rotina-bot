@@ -324,6 +324,37 @@ tr.cur td{background:var(--accent-soft)}
 .colors{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px}
 .colors label{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--line);border-radius:10px;font-size:14px;font-weight:600}
 .colors input{width:30px;height:30px;border:0;padding:0;background:none;border-radius:6px}
+.sh.wide{}
+@media (min-width:760px){ .sh.wide{width:min(1040px,calc(100vw - 32px))} }
+.mv-wrap{container-type:inline-size}
+.mv-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.mv-nav b{font-family:var(--font-d);font-size:17px;text-transform:capitalize}
+.mv{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:8px}
+.mv .wd{font-size:10.5px;color:var(--fg-3);font-weight:700;padding:3px 0;text-transform:uppercase;text-align:center}
+.mv-c{min-height:58px;border-radius:9px;padding:5px 3px;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--surface-2);min-width:0;text-align:left}
+.mv-c:hover{outline:1px solid var(--line-2)}
+.mv-c.out{opacity:.45}
+.mv-c.sel{outline:2px solid var(--accent);outline-offset:-2px}
+.mv-top{display:flex;flex-direction:column;align-items:center;gap:2px}
+.mv-n{font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.mv-c.today .mv-n{background:var(--accent);color:var(--accent-fg);border-radius:6px;padding:0 5px}
+.av{font-size:10.5px;font-weight:700;border-radius:5px;padding:0 4px;line-height:16px;white-space:nowrap}
+.av.ok{background:color-mix(in srgb,var(--good) 16%,var(--surface));color:var(--good)}
+.av.full{background:color-mix(in srgb,var(--warn) 18%,var(--surface));color:var(--warn)}
+.av.off{background:color-mix(in srgb,var(--bad) 14%,var(--surface));color:var(--bad)}
+.mv-it{display:none}
+@container (min-width:700px){
+  .mv-c{min-height:108px;align-items:stretch;padding:6px}
+  .mv-top{flex-direction:row;justify-content:space-between}
+  .mv-c .dots{display:none}
+  .mv-it{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .mv-it span{--c:#888;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:4px;padding:1px 4px;background:color-mix(in srgb,var(--c) 16%,var(--surface))}
+  .mv-it em{font-style:normal;color:var(--fg-3);font-size:10.5px;padding-left:4px}
+}
+.mv-day{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px}
+.mv-day h4{font-family:var(--font-d);font-size:17px}
+.dp-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;color:var(--fg-2)}
+.tl li .tm{width:70px;flex:none;font-weight:700;font-size:13px;color:var(--fg-2);font-variant-numeric:tabular-nums}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 84px);z-index:60;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
 @media (min-width:1100px){ .toast{bottom:28px} }
 .sugs{display:flex;flex-wrap:wrap;gap:6px}
@@ -406,11 +437,21 @@ const SEED_SERIES=[
  {id:'wB3',wk:'B',title:'Academia',type:'academia',time:'07:30',start:'2026-10-14',rule:'biweekly',skip:[],done:[]},
  {id:'wB4',wk:'B',title:'Academia',type:'academia',time:'14:00',start:'2026-10-15',rule:'biweekly',skip:[],done:[]},
 ];
-const KEYS=['settings','notes','tasks','series','shifts','money','energy','notices'];
+// Plantões fixos: Semana A = ímpar (05/10), Semana B = par (12/10). Tutora sem horário informado: 7h–19h.
+const SEED_RULES=[
+ {id:'pA1',wk:'A',start:'2026-10-06',t0:'11:00',t1:'21:00',kind:'porta'},
+ {id:'pA2',wk:'A',start:'2026-10-07',t0:'11:00',t1:'21:00',kind:'porta'},
+ {id:'pA3',wk:'A',start:'2026-10-09',t0:'07:00',t1:'19:00',kind:'tutora'},
+ {id:'pA4',wk:'A',start:'2026-10-10',t0:'07:00',t1:'19:00',kind:'tutora'},
+ {id:'pB1',wk:'B',start:'2026-10-12',t0:'11:00',t1:'21:00',kind:'porta'},
+ {id:'pB2',wk:'B',start:'2026-10-13',t0:'11:00',t1:'21:00',kind:'porta'},
+ {id:'pB3',wk:'B',start:'2026-10-16',t0:'07:00',t1:'19:00',kind:'tutora'},
+];
+const KEYS=['settings','notes','tasks','series','shifts','money','energy','notices','rules'];
 const DEF=()=>({
  settings:{types:JSON.parse(JSON.stringify(DEF_TYPES)),rates:{tutora:2200,porta:2000},theme:'system'},
  notes:[],tasks:[],series:JSON.parse(JSON.stringify(SEED_SERIES)),shifts:[],
- money:{exp:[],fixed:[],inv:[]},energy:{},notices:[]
+ money:{exp:[],fixed:[],inv:[]},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES))
 });
 const LS='prontuario-v1';
 let S=DEF();
@@ -494,7 +535,7 @@ async function boot(){
 function afterLoad(){
  if(booted)return;booted=true;
  if(mode==='local')KEYS.forEach(k=>loaded[k]=true);
- reschedule();render();
+ genShifts();reschedule();render();
 }
 
 /* ---------- IA (sample) ---------- */
@@ -613,6 +654,33 @@ function reschedule(){
  save('tasks','notices');
 }
 
+/* ---------- plantões fixos (quinzenais) ---------- */
+function genShifts(){
+ const hz=addD(today(),180);let ch=false;
+ for(const r of S.rules){
+  let d=r.upto?addD(r.upto,1):r.start;if(d<r.start)d=r.start;
+  const off=diffD(r.start,d)%14;if(off)d=addD(d,14-off);
+  const lim=r.until&&addD(r.until,-1)<hz?addD(r.until,-1):hz;
+  while(d<=lim){const id=r.id+'-'+d;if(!S.shifts.some(x=>x.id===id))S.shifts.push({id,date:d,start:r.t0,end:r.t1,kind:r.kind,v12:S.settings.rates[r.kind],rule:r.id});d=addD(d,14);ch=true}
+  if(!r.upto||r.upto<lim){r.upto=lim;ch=true}
+ }
+ if(ch)save('rules','shifts');
+}
+const dropFutureRule=id=>{const t=today();S.shifts=S.shifts.filter(x=>!(x.rule===id&&x.date>=t&&!shiftDone(x)))};
+const BASE_AB={A:'2026-10-05',B:'2026-10-12'};
+const ruleWd=r=>(P(r.start).getDay()+6)%7;
+const ruleLabel=r=>`${WDL[P(r.start).getDay()]} · ${kindName(r.kind)} ${hm(r.t0)}–${hm(r.t1)}`;
+function ruleForm(r){
+ const o=r||{wk:'A',start:BASE_AB.A,t0:'07:00',t1:'19:00',kind:'tutora'};
+ sheet(r?'Editar plantão fixo':'Novo plantão fixo',`<form class="sh-b" data-f="rule" data-id="${r?r.id:''}">
+  <div class="grid2"><label class="field"><span>Semana</span><select class="in" id="rfWk"><option value="A" ${o.wk==='A'?'selected':''}>A · ímpar</option><option value="B" ${o.wk==='B'?'selected':''}>B · par</option></select></label>
+  <label class="field"><span>Dia</span><select class="in" id="rfWd">${['segunda','terça','quarta','quinta','sexta','sábado','domingo'].map((n,i)=>`<option value="${i}" ${ruleWd(o)===i?'selected':''}>${n}</option>`).join('')}</select></label></div>
+  <div class="grid2"><label class="field"><span>Início</span><input class="in" type="time" id="rfT0" value="${o.t0}" required></label><label class="field"><span>Fim</span><input class="in" type="time" id="rfT1" value="${o.t1}" required></label></div>
+  <label class="field"><span>Tipo</span><select class="in" id="rfKind"><option value="tutora" ${o.kind==='tutora'?'selected':''}>Tutora</option><option value="porta" ${o.kind==='porta'?'selected':''}>Porta</option></select></label>
+  <p class="tiny faint" style="margin:0">${r?'A mudança vale de hoje em diante; plantões passados ficam como estão.':'Os plantões são criados a cada 2 semanas pelos próximos 6 meses e renovados sozinhos.'}</p>
+  <div class="btns"><button class="btn pri">Salvar</button>${r?`<button type="button" class="btn danger" data-a="endRule" data-id="${r.id}">Encerrar (mantém os passados)</button>`:''}</div></form>`);
+}
+
 /* ---------- dinheiro ---------- */
 function fixedValue(f,m){
  if(f.end&&m>=f.end)return null;
@@ -662,6 +730,7 @@ function render(){
  $('#tabsTop').innerHTML=navHTML();$('#tabsBot').innerHTML=navHTML();
  const v=$('#view');
  v.innerHTML=({semana:vHome,resumo:vResumo,dinheiro:vMoney,energia:vEnergy,ia:vAI}[tab]||vHome)();
+ if(liveSheet&&!$('#sheet').hidden){const sh=$('#sheet .sh');const y=sh?sh.scrollTop:0;const f=liveSheet;f();liveSheet=f;const n=$('#sheet .sh');if(n)n.scrollTop=y}
 }
 
 /* ---------- Semana (tela inicial) ---------- */
@@ -685,12 +754,12 @@ function cWeek(){
   const ds=addD(wk,i);const d=P(ds);const its=itemsOn(ds);
   const cap=capacity(ds),ld=load(ds);const full=ds>=t&&cap>0&&ld>=cap;
   days.push(`<div class="day ${ds===t?'today':''} ${ds<t?'past':''}">
-   <button class="dh" data-a="newTask" data-ds="${ds}" aria-label="Adicionar em ${dLong(ds)}"><span class="w">${WD[d.getDay()]}</span><span class="d num">${d.getDate()}</span>${full?'<span class="full">no limite</span>':''}</button>
+   <button class="dh" data-a="dayOpen" data-ds="${ds}" aria-label="Ver detalhes de ${dLong(ds)}"><span class="w">${WD[d.getDay()]}</span><span class="d num">${d.getDate()}</span>${full?'<span class="full">no limite</span>':''}</button>
    <div class="items">${its.map(chipHTML).join('')}<button class="add-day" data-a="newTask" data-ds="${ds}" aria-label="Adicionar tarefa">${ico('plus',2.4)}</button></div></div>`);
  }
  const end=addD(wk,6),a=P(wk),b=P(end);
  const range=a.getMonth()===b.getMonth()?`${a.getDate()}–${b.getDate()} ${MO[b.getMonth()]}`:`${a.getDate()} ${MO[a.getMonth()]} – ${b.getDate()} ${MO[b.getMonth()]}`;
- return `<section class="card week" aria-label="Semana"><div class="wk-h"><h2 class="num">${range}<span class="ab">Semana ${weekAB(wk)}</span></h2>
+ return `<section class="card week" aria-label="Semana"><div class="wk-h"><h2 class="num">${range}<span class="ab">Semana ${weekAB(wk)} · ${weekAB(wk)==='A'?'ímpar':'par'}</span></h2>
  <div class="wk-nav"><button class="icon-btn" data-a="wk" data-v="-1" aria-label="Semana anterior">${ico('l')}</button><button class="btn sm" data-a="wk" data-v="0">Hoje</button><button class="icon-btn" data-a="wk" data-v="1" aria-label="Próxima semana">${ico('r')}</button></div></div>
  <div class="days">${days.join('')}</div></section>`;
 }
@@ -712,7 +781,7 @@ function cCal(){
   const types=[...new Set(itemsOn(ds).map(x=>x.type))].slice(0,4);
   cells+=`<button class="${ym(ds)!==calM?'out':''} ${ds===t?'today':''} ${ds>=wk&&ds<=wkEnd?'inwk':''}" data-a="calDay" data-ds="${ds}" aria-label="${dLong(ds)}"><span class="num">${P(ds).getDate()}</span><span class="dots">${types.map(k=>`<i style="background:${T(k).c}"></i>`).join('')}</span></button>`;
  }
- return `<section class="card" aria-label="Calendário do mês"><div class="mc-h"><b>${mLabel(calM)}</b><div class="wk-nav"><button class="icon-btn" data-a="calM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><button class="icon-btn" data-a="calM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
+ return `<section class="card" aria-label="Calendário do mês"><div class="mc-h"><button class="link" data-a="monthOpen" style="font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--fg);text-transform:capitalize" aria-label="Abrir ${mLabel(calM)} em detalhe">${mLabel(calM)} ›</button><div class="wk-nav"><button class="icon-btn" data-a="calM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><button class="icon-btn" data-a="calM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
  <div class="mc">${['seg','ter','qua','qui','sex','sáb','dom'].map(w=>`<span class="wd">${w}</span>`).join('')}${cells}</div>
  <div class="legend">${Object.keys(S.settings.types).map(k=>`<span><i style="background:${T(k).c}"></i>${h(T(k).n)}</span>`).join('')}</div></section>`;
 }
@@ -1024,12 +1093,13 @@ async function exportICS(){
 
 /* ---------- folhas (sheets) ---------- */
 let sheetOpener=null;
-function sheet(title,body){
- const el=$('#sheet');sheetOpener=document.activeElement;
- el.innerHTML=`<div class="sh-bg" data-a="closeSheet"></div><div class="sh" role="dialog" aria-modal="true" aria-label="${h(title)}"><div class="sh-h"><h3>${h(title)}</h3><button class="icon-btn" data-a="closeSheet" aria-label="Fechar">✕</button></div><div class="sh-b">${body}</div></div>`;
+let liveSheet=null;
+function sheet(title,body,wide){
+ const el=$('#sheet');liveSheet=null;if(!el.contains(document.activeElement))sheetOpener=document.activeElement;
+ el.innerHTML=`<div class="sh-bg" data-a="closeSheet"></div><div class="sh${wide?' wide':''}" role="dialog" aria-modal="true" aria-label="${h(title)}"><div class="sh-h"><h3>${h(title)}</h3><button class="icon-btn" data-a="closeSheet" aria-label="Fechar">✕</button></div><div class="sh-b">${body}</div></div>`;
  el.hidden=false;const f=el.querySelector('input:not([type=hidden]):not([type=checkbox]),textarea,select');if(f&&!f.readOnly&&matchMedia('(min-width:760px)').matches)f.focus();
 }
-function closeSheet(){$('#sheet').hidden=true;$('#sheet').innerHTML='';try{sheetOpener?.focus?.()}catch(e){}}
+function closeSheet(){liveSheet=null;$('#sheet').hidden=true;$('#sheet').innerHTML='';try{sheetOpener?.focus?.()}catch(e){}}
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200)}
 const typeOpts=(sel,noShift=true)=>Object.keys(S.settings.types).filter(k=>!noShift||k!=='plantao').map(k=>`<option value="${k}" ${k===sel?'selected':''}>${h(T(k).n)}</option>`).join('');
 function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoal'}){
@@ -1046,8 +1116,8 @@ function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoa
   ${mode==='new'&&capacity(dt)===0?'<p class="tiny" style="color:var(--warn);margin:0">Esse dia não tem espaço (plantão longo ou energia baixa prevista).</p>':''}
   <div class="btns"><button class="btn pri">Salvar</button><button type="button" class="btn" data-a="closeSheet">Cancelar</button></div></form>`);
 }
-function shiftForm(s){
- const o=s||{date:today(),start:'07:00',end:'19:00',kind:'tutora'};
+function shiftForm(s,ds){
+ const o=s||{date:ds||today(),start:'07:00',end:'19:00',kind:'tutora'};
  sheet(s?'Editar plantão':'Novo plantão',`<form class="sh-b" data-f="shift" data-id="${s?s.id:''}">
   <div class="grid2"><label class="field"><span>Data de início</span><input class="in" type="date" id="sfDate" value="${o.date}" required data-calc></label>
   <label class="field"><span>Tipo</span><select class="in" id="sfKind" data-calc><option value="tutora" ${o.kind==='tutora'?'selected':''}>Tutora · ${brl0(S.settings.rates.tutora)}/12 h</option><option value="porta" ${o.kind==='porta'?'selected':''}>Porta · ${brl0(S.settings.rates.porta)}/12 h</option></select></label></div>
@@ -1055,7 +1125,7 @@ function shiftForm(s){
   <label class="field"><span>Fim</span><input class="in" type="time" id="sfEnd" value="${o.end}" required data-calc></label></div>
   <div class="seg" role="group" aria-label="Atalhos">${[['07:00','19:00','12 h dia'],['19:00','07:00','12 h noite'],['07:00','13:00','6 h'],['07:00','07:00','24 h']].map(([a,b,l])=>`<button type="button" data-a="sfQuick" data-s="${a}" data-e="${b}">${l}</button>`).join('')}</div>
   ${s?'':`<label class="field"><span>Repetir nas próximas semanas</span><select class="in" id="sfRep">${[0,1,2,3,4,6,8,12].map(n=>`<option value="${n}">${n===0?'Não repetir':`Mais ${n} semana${n>1?'s':''}`}</option>`).join('')}</select></label>`}
-  <p class="small" id="sfCalc" style="margin:0"></p>
+  <p class="small" id="sfCalc" style="margin:0"></p>${s&&s.rule?'<p class="tiny faint" style="margin:0">Faz parte de um plantão fixo. Editar aqui muda só este dia; para mudar todos, use Ajustes → Plantões fixos.</p>':''}
   <div class="btns"><button class="btn pri">Salvar</button>${s?`<button type="button" class="btn danger" data-a="delShift" data-id="${s.id}">Excluir</button>`:''}<button type="button" class="btn" data-a="closeSheet">Cancelar</button></div></form>`);
  calcShift();
 }
@@ -1065,6 +1135,45 @@ function calcShift(){
  const id=$('#sheet form').dataset.id;const old=id&&S.shifts.find(x=>x.id===id);
  if(old&&old.kind===s.kind)s.v12=old.v12;
  el.innerHTML=`<b>${f1(shiftHours(s)).replace(',0','')} h</b>${shiftNight(s)?' · noturno':''}${shiftCross(s)?' · termina no dia seguinte':''} · <b>${brl(shiftValue(s))}</b> <span class="faint">(${brl(shiftRate(s)/12)}/h)</span>`;
+}
+const cap1=s=>s.charAt(0).toUpperCase()+s.slice(1);
+function availOf(ds){
+ if(ds<today())return null;const c=capacity(ds),l=load(ds);
+ if(longShiftOn(ds))return {cls:'off',short:'plantão',long:'Plantão longo · sem tarefas extras'};
+ if(c===0)return {cls:'off',short:'sem espaço',long:'Sem espaço previsto (energia baixa)'};
+ if(l>=c)return {cls:'full',short:'cheio',long:`No limite · ${l} de ${c} tarefas`};
+ return {cls:'ok',short:`+${c-l}`,long:`Livre · cabe${c-l>1?'m':''} mais ${c-l} tarefa${c-l>1?'s':''}`};
+}
+function dayPanel(ds){
+ const its=itemsOn(ds),a=availOf(ds),e=S.energy[ds];
+ const rows=its.map(it=>{
+  const tm=it.k==='shift'?`${hm(it.o.start)}–${hm(it.o.end)}`:it.time?hm(it.time):'dia todo';
+  const title=it.k==='shift'?`Plantão ${kindName(it.o.kind)}`:it.type==='estudo'?`Estudo · ${it.title}`:it.title;
+  const sub=it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`;
+  return `<li><span class="tm">${tm}</span><span class="dot" style="background:${T(it.type).c}"></span><button class="grow" data-a="open" data-k="${it.k}" data-id="${it.id}" data-day="${ds}"><b>${h(title)}</b><span class="tiny faint">${h(sub)}</span></button>${it.k!=='shift'?`<button class="btn sm ${it.done?'pri':''}" data-a="toggle" data-k="${it.k}" data-id="${it.id}" data-day="${ds}" aria-pressed="${it.done}">${it.done?'Feito':'Concluir'}</button>`:''}</li>`;
+ }).join('');
+ return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>Semana ${weekAB(ds)} · ${weekAB(ds)==='A'?'ímpar':'par'}</span></div>
+ ${its.length?`<ul class="lst tl">${rows}</ul>`:'<p class="empty">Dia livre, nada agendado.</p>'}
+ <div class="btns"><button class="btn sm pri" data-a="newTask" data-ds="${ds}">+ Tarefa</button><button class="btn sm" data-a="newShift" data-ds="${ds}">+ Plantão</button><button class="btn sm" data-a="goWeek" data-ds="${ds}">Ver na semana</button></div>`;
+}
+function daySheet(ds){sheet(cap1(dLong(ds)),dayPanel(ds));liveSheet=()=>daySheet(ds)}
+let MV={m:ym(today()),sel:today()};
+function monthCell(ds){
+ const t=today(),its=itemsOn(ds),a=availOf(ds);
+ const types=[...new Set(its.map(x=>x.type))].slice(0,4);
+ const lines=its.slice(0,3).map(it=>`<span style="--c:${T(it.type).c}">${it.k==='shift'?`${hm(it.o.start)} Plantão`:`${it.time?hm(it.time)+' ':''}${h(chipLabel(it))}`}</span>`).join('')+(its.length>3?`<em>+${its.length-3}</em>`:'');
+ return `<button class="mv-c ${ym(ds)!==MV.m?'out':''} ${ds===t?'today':''} ${ds===MV.sel?'sel':''}" data-a="mvSel" data-ds="${ds}" aria-label="${dLong(ds)}${a?', '+a.long:''}"><span class="mv-top"><span class="mv-n">${P(ds).getDate()}</span>${a?`<span class="av ${a.cls}">${a.short}</span>`:''}</span><span class="dots">${types.map(k=>`<i style="background:${T(k).c}"></i>`).join('')}</span><span class="mv-it">${lines}</span></button>`;
+}
+function monthSheet(){
+ const m=MV.m,start=monday(m+'-01'),t=today();let cells='';
+ let free=0,full=0,sh=0,hrs=0;
+ for(let i=0;i<42;i++){const ds=addD(start,i);if(i>=35&&ym(ds)!==m)break;cells+=monthCell(ds);
+  if(ym(ds)===m){const a=availOf(ds);if(a){if(a.cls==='ok')free++;else full++}for(const s of S.shifts)if(s.date===ds){sh++;hrs+=shiftHours(s)}}}
+ sheet(cap1(mLabel(m)),`<div class="mv-wrap"><div class="mv-nav"><span class="small muted">${sh} plantões · ${Math.round(hrs)} h · ${free} dias com espaço${full?` · ${full} cheios ou sem espaço`:''}</span><div class="wk-nav"><button class="icon-btn" data-a="mvM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><button class="btn sm" data-a="mvM" data-v="0">Hoje</button><button class="icon-btn" data-a="mvM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
+ <div class="mv">${['seg','ter','qua','qui','sex','sáb','dom'].map(w=>`<span class="wd">${w}</span>`).join('')}${cells}</div>
+ <div class="legend"><span><i style="background:var(--good)"></i>+N: tarefas que ainda cabem</span><span><i style="background:var(--warn)"></i>cheio</span><span><i style="background:var(--bad)"></i>plantão longo / sem espaço</span></div></div>
+ <div class="mv-day" id="mvDay"><h4>${cap1(dLong(MV.sel))}</h4>${dayPanel(MV.sel)}</div>`,true);
+ liveSheet=monthSheet;
 }
 function openItem(k,id,day){
  if(k==='shift'){const s=S.shifts.find(x=>x.id===id);if(s)shiftForm(s);return}
@@ -1111,6 +1220,7 @@ function settingsSheet(){
  <div class="sh-sec"><h4>Treinos · Semana A</h4><ul class="lst">${A.map(ser).join('')||'<li class="empty">Nenhum</li>'}</ul></div>
  <div class="sh-sec"><h4>Treinos · Semana B</h4><ul class="lst">${B.map(ser).join('')||'<li class="empty">Nenhum</li>'}</ul><p class="tiny faint" style="margin:0">A semana de 12/10/2026 é B; depois alternam. Toque para editar horário ou dia.</p></div>
  ${O.length?`<div class="sh-sec"><h4>Outras séries</h4><ul class="lst">${O.map(ser).join('')}</ul></div>`:''}
+ <div class="sh-sec"><h4>Plantões fixos</h4>${['A','B'].map(w=>`<p class="tiny faint" style="margin:4px 0 0">Semana ${w} · ${w==='A'?'ímpar':'par'}</p><ul class="lst">${S.rules.filter(r=>r.wk===w).sort((a,b)=>ruleWd(a)-ruleWd(b)).map(r=>`<li><span class="dot" style="background:${T('plantao').c}"></span><button class="grow" data-a="editRule" data-id="${r.id}"><b>${h(ruleLabel(r))}</b><span class="tiny faint">${f1(shiftHours({start:r.t0,end:r.t1})).replace(',0','')} h · ${brl(shiftHours({start:r.t0,end:r.t1})*S.settings.rates[r.kind]/12)}</span></button></li>`).join('')||'<li class="empty">Nenhum</li>'}</ul>`).join('')}<div class="btns"><button class="btn sm" data-a="newRule">+ Plantão fixo</button></div></div>
  <div class="sh-sec"><h4>Agenda</h4><div class="btns"><button class="btn" data-a="ics">Exportar agenda (.ics)</button></div><p class="tiny faint" style="margin:0">Importe no TickTick, Google Agenda ou Apple Calendário.</p></div>
  <div class="sh-sec"><h4>Dados</h4><p class="small" style="margin:0">${mode==='cloud'?'Salvos na sua conta: aparecem iguais no celular e no computador.':'Salvos só neste navegador (o banco da conta não respondeu). Exporte um backup de vez em quando.'}</p>
  <div class="btns"><button class="btn" data-a="backup">Exportar backup (.json)</button><label class="btn" for="bkIn">Importar backup</label><input type="file" id="bkIn" accept="application/json,.json" hidden></div></div>`);
@@ -1125,11 +1235,19 @@ const ACT={
  closeSheet:()=>closeSheet(),
  fab:()=>sheet('Adicionar',`<div class="menu"><button data-a="newTask"><i style="background:${T('pessoal').c}"></i><span>Tarefa ou evento<small>Estudo, treino, pessoal… com repetição opcional</small></span></button><button data-a="newShift"><i style="background:${T('plantao').c}"></i><span>Plantão<small>Data, horário e tipo; valor calculado</small></span></button><button data-a="newExp"><i style="background:var(--s-sup)"></i><span>Gasto supérfluo<small>Nome, valor e data</small></span></button></div>`),
  newTask:el=>taskForm({mode:'new',date:el.dataset.ds||(tab==='semana'&&wk!==monday(today())?wk:today()),type:el.dataset.type||'pessoal'}),
- newShift:()=>shiftForm(null),
+ newShift:el=>shiftForm(null,el&&el.dataset&&el.dataset.ds),
  newExp:()=>sheet('Gasto supérfluo',`<form class="sh-b" data-f="expSheet"><label class="field"><span>Nome</span><input class="in" id="esName" required placeholder="Ex.: café"></label><div class="grid2"><label class="field"><span>Valor (R$)</span><input class="in" id="esV" inputmode="decimal" required placeholder="0,00"></label><label class="field"><span>Data</span><input class="in" type="date" id="esDate" value="${today()}" required></label></div><div class="btns"><button class="btn pri">Adicionar</button></div></form>`),
  wk:el=>{const v=+el.dataset.v;wk=v===0?monday(today()):addD(wk,7*v);calM=ym(addD(wk,3));render()},
  calM:el=>{calM=addM(calM,+el.dataset.v);render()},
- calDay:el=>{wk=monday(el.dataset.ds);calM=ym(el.dataset.ds);render()},
+ calDay:el=>{MV={m:ym(el.dataset.ds),sel:el.dataset.ds};monthSheet()},
+ monthOpen:()=>{const t=today();MV={m:calM,sel:ym(t)===calM?t:calM+'-01'};monthSheet()},
+ dayOpen:el=>daySheet(el.dataset.ds),
+ mvM:el=>{const v=+el.dataset.v,t=today();MV.m=v===0?ym(t):addM(MV.m,v);MV.sel=ym(t)===MV.m?t:MV.m+'-01';monthSheet()},
+ mvSel:el=>{MV.sel=el.dataset.ds;document.querySelectorAll('.mv-c.sel').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');const d=$('#mvDay');if(d){d.innerHTML=`<h4>${cap1(dLong(MV.sel))}</h4>${dayPanel(MV.sel)}`;if(!matchMedia('(min-width:760px)').matches)d.scrollIntoView({block:'start',behavior:'smooth'})}},
+ goWeek:el=>{const ds=el.dataset.ds;wk=monday(ds);calM=ym(ds);tab='semana';closeSheet();render();window.scrollTo(0,0)},
+ editRule:el=>{const r=S.rules.find(x=>x.id===el.dataset.id);if(r)ruleForm(r)},
+ newRule:()=>ruleForm(null),
+ endRule:el=>{if(!armed(el))return;dropFutureRule(el.dataset.id);S.rules=S.rules.filter(x=>x.id!==el.dataset.id);save('rules','shifts');settingsSheet();toast('Plantão fixo encerrado. Os passados ficaram.')},
  sumWk:el=>{const v=+el.dataset.v;sumWk=v===0?monday(today()):addD(sumWk,7*v);render()},
  monM:el=>{monM=addM(monM,+el.dataset.v);render()},
  open:el=>openItem(el.dataset.k,el.dataset.id,el.dataset.day),
@@ -1227,6 +1345,13 @@ const FORMS={
   else{const rep=+($('#sfRep')?.value||0);for(let i=0;i<=rep;i++)S.shifts.push({id:nid(),date:addD(date,7*i),start,end,kind,v12:S.settings.rates[kind]})}
   save('shifts');closeSheet();toast(id?'Plantão atualizado.':'Plantão salvo.');
  },
+ rule:f=>{
+  const id=f.dataset.id,wkv=$('#rfWk').value,wd=+$('#rfWd').value,t0=$('#rfT0').value,t1=$('#rfT1').value,kind=$('#rfKind').value;
+  if(!t0||!t1)return;const start=addD(BASE_AB[wkv],wd),y=addD(today(),-1);
+  if(id){const r=S.rules.find(x=>x.id===id);if(!r)return;dropFutureRule(r.id);Object.assign(r,{wk:wkv,start,t0,t1,kind,upto:y});delete r.until}
+  else S.rules.push({id:nid(),wk:wkv,start,t0,t1,kind,upto:y});
+  genShifts();save('rules','shifts');settingsSheet();toast('Plantão fixo salvo.');
+ },
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
  addExp:f=>{const v=parseBRL(D.mxV);const name=(D.mxName||'').trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#mxDate').value||today()});D.mxName='';D.mxV='';save('money')},
  addInv:f=>{const v=parseBRL(D.ivV);if(!(v>0)){toast('Informe o valor do aporte (ex.: 1.500,00).');return}S.money.inv.push({id:nid(),desc:(D.ivDesc||'').trim(),v,date:$('#ivDate').value||today()});D.ivDesc='';D.ivV='';save('money')},
@@ -1274,6 +1399,6 @@ function planStudies(themes){
 /* ---------- início ---------- */
 $('#gear').innerHTML=ico('gear',1.8);$('#fab').innerHTML=ico('plus',2.4);
 render();boot();
-setInterval(()=>{const t=today();if(t!==lastDay){lastDay=t;if(wk===monday(addD(t,-1))&&monday(t)!==wk)wk=monday(t);if(booted)reschedule();render()}},60000);
+setInterval(()=>{const t=today();if(t!==lastDay){lastDay=t;if(wk===monday(addD(t,-1))&&monday(t)!==wk)wk=monday(t);if(booted){genShifts();reschedule()}render()}},60000);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden){const t=today();if(t!==lastDay){lastDay=t;wk=monday(t);if(booted)reschedule();render()}}});
 </script>
