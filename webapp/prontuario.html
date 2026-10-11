@@ -934,7 +934,8 @@ function senderName(s){s=String(s||'');const m=s.match(/^\s*"?([^"<]+?)"?\s*</);
 const senderKey=s=>{const em=(String(s).match(/<([^>]+)>/)||[,String(s)])[1].toLowerCase().trim();return em.split('@')[1]||em};
 function threadsOf(res){let p=res&&res.payload;if(!p&&res&&res.content){try{p=JSON.parse((res.content.find(c=>c.type==='text')||{}).text||'{}')}catch(e){p={}}}
  return ((p&&p.threads)||[]).map(t=>{const ms=t.messages||[];const f=ms[0]||{},l=ms[ms.length-1]||f;const labels=[...new Set(ms.flatMap(m=>m.labelIds||[]))];
-  return {id:t.id,subject:decodeEnt(f.subject||'(sem assunto)'),snippet:decodeEnt(l.snippet||''),sender:l.sender||f.sender||'',date:l.date||f.date||'',url:t.viewUrl||l.viewUrl||'',count:t.messageCount||ms.length,labels,unread:labels.includes('UNREAD')}});}
+  const to=ms.flatMap(m=>[...(m.toRecipients||[]),...(m.ccRecipients||[])]).join(' ').toLowerCase();
+  return {id:t.id,alt:to.includes('analuisa.tnmaia@'),subject:decodeEnt(f.subject||'(sem assunto)'),snippet:decodeEnt(l.snippet||''),sender:l.sender||f.sender||'',date:l.date||f.date||'',url:t.viewUrl||l.viewUrl||'',count:t.messageCount||ms.length,labels,unread:labels.includes('UNREAD')}});}
 // remetentes que são sempre importantes (Prevent Senior, Vunesp), inclusive subdomínios
 const ALWAYS_IMP=['preventsenior.com.br','vunesp.com.br'];
 const alwaysImp=k=>ALWAYS_IMP.some(d=>k===d||k.endsWith('.'+d));
@@ -960,7 +961,7 @@ async function mailRefresh(){if(!mcp)return;MAIL.state=MAIL.main?'ok':'loading';
  mailRender()}
 function mailWhen(d){if(!d)return '';const x=new Date(d);if(isNaN(x))return '';const ds=ymd(x);return ds===today()?`${pad(x.getHours())}:${pad(x.getMinutes())}`:ds===addD(today(),-1)?'ontem':`${x.getDate()}/${pad(x.getMonth()+1)}`}
 function mailRow(t,full){
- return `<div class="mail ${t.unread?'unread':''}"><div class="mw"><div class="mt"><span class="ms">${h(senderName(t.sender))}${t.count>1?` <span class="faint" style="font-weight:500">(${t.count})</span>`:''}</span><span class="md">${mailWhen(t.date)}</span></div>
+ return `<div class="mail ${t.unread?'unread':''}"><div class="mw"><div class="mt"><span class="ms">${h(senderName(t.sender))}${t.count>1?` <span class="faint" style="font-weight:500">(${t.count})</span>`:''}${t.alt?' <span class="pill" style="height:18px;font-size:10.5px;vertical-align:1px">tnmaia</span>':''}</span><span class="md">${mailWhen(t.date)}</span></div>
  ${t.url?`<a class="mj" href="${h(t.url)}" target="_blank" rel="noopener">${h(t.subject)}</a>`:`<span class="mj">${h(t.subject)}</span>`}<span class="mp">${h(t.snippet)}</span>
  ${full?`<div class="ma">${t.unread?`<button class="btn sm" data-a="mailAct" data-op="read" data-id="${t.id}">Lida</button>`:''}<button class="btn sm" data-a="mailAct" data-op="archive" data-id="${t.id}">Arquivar</button><button class="btn sm" data-a="mailTask" data-id="${t.id}">+ Tarefa</button><button class="btn sm" data-a="mailSender" data-id="${t.id}">Remetente…</button></div>`:''}</div></div>`;
 }
