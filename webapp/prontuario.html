@@ -1002,10 +1002,11 @@ ${cardSection(cur)}
 }
 
 /* ---------- Energia ---------- */
+const shiftPills=ds=>S.shifts.filter(x=>x.date===ds).sort((a,b)=>a.start.localeCompare(b.start)).map(x=>` <span class="pill ${shiftHours(x)>=10?'bad':'warn'}">plantão ${hm(x.start)}–${hm(x.end)} · ${f1(shiftHours(x)).replace(',0','')} h</span>`).join('');
 const TAGS=['plantão','plantão noturno','sono ruim','dormi bem','estudo pesado','treinei','dia leve','estresse'];
 function vEnergy(){
  const t=today(),e=S.energy[t]||{},st=eStats();
- const nxt=[];for(let i=0;i<7;i++){const ds=addD(t,i);const c=capacity(ds),l=load(ds);nxt.push(`<tr><td>${dLabel(ds)}${longShiftOn(ds)?' <span class="pill bad">plantão 12 h</span>':prevShift(ds)==='night'?' <span class="pill warn">pós-noturno</span>':''}</td><td>${f1(predict(ds))}</td><td><span class="cap ${c===0?'z':''}">${c}</span></td><td>${l}${l>c?' <span class="pill warn">acima</span>':''}</td></tr>`)}
+ const nxt=[];for(let i=0;i<7;i++){const ds=addD(t,i);const c=capacity(ds),l=load(ds);nxt.push(`<tr><td>${dLabel(ds)}${shiftPills(ds)}${!anyShiftOn(ds)&&prevShift(ds)==='night'?' <span class="pill warn">pós-noturno</span>':''}</td><td>${f1(predict(ds))}</td><td><span class="cap ${c===0?'z':''}">${c}</span></td><td>${l}${l>c?' <span class="pill warn">acima</span>':''}</td></tr>`)}
  const dd=(v,n)=>v==null?`<span class="faint">sem dados (${n})</span>`:`${f1(v)} <span class="faint">(${n} dias)</span>`;
  return `<div class="ph"><div><h1>Energia</h1><div class="sub">Manhã é 1 toque; a noite é opcional</div></div></div>
  <div class="cols">
@@ -1024,7 +1025,7 @@ function vEnergy(){
  </section>
  ${lowEnergyNow()?`<section class="card span2"><div class="card-h"><h3>Energia baixa: o que ajuda</h3></div><p class="small" style="margin:0 0 10px"><b>Não adicione tarefas para amanhã.</b> O app já reduziu a capacidade de amanhã. Escolha uma destas:</p><div class="stats">${TIPS.map(tipHTML).join('')}</div></section>`:''}
  <section class="card"><div class="card-h"><h3>Próximos 7 dias</h3></div><div class="tbl-w"><table><thead><tr><th>Dia</th><th>Energia prevista</th><th>Cabem</th><th>Agendadas</th></tr></thead><tbody>${nxt.join('')}</tbody></table></div>
-  <p class="tiny faint" style="margin:8px 0 0">"Cabem" conta estudos e tarefas pessoais (treinos não entram). Plantão de 12 h zera o dia. Baseado na sua energia prevista e em quanto você tem concluído.</p></section>
+  <p class="tiny faint" style="margin:8px 0 0">"Cabem" conta estudos e tarefas pessoais (treinos não entram). Plantão de 10 h ou mais zera o dia. Baseado na sua energia prevista e em quanto você tem concluído.</p></section>
  <section class="card"><div class="card-h"><h3>Últimos 30 dias</h3></div>${eChart()}<div class="e-read" id="eRead">Toque numa barra para ver o dia.</div>
   <div class="legend"><span><i style="background:var(--accent)"></i>manhã</span><span><i style="background:var(--bad)"></i>manhã 1–2</span><span><i style="background:${T('plantao').c};border-radius:2px"></i>dia de plantão</span></div></section>
  </div>`;
@@ -1047,7 +1048,7 @@ function eChart(){
 function vAI(){
  const off=aiState==='off';
  const card=(key,title,desc,body)=>`<section class="card"><div class="card-h"><h3>${title}</h3></div>${desc?`<p class="small muted" style="margin:0 0 10px">${desc}</p>`:''}${body}${aiOut(key)}</section>`;
- const mwPrev=MW?`<div style="margin-top:12px"><div class="small muted" style="margin-bottom:6px">${MW.items.length} temas encontrados. Distribuídos em dias com capacidade livre, até 2 por dia e nenhum em plantão de 12 h. Ajuste antes de adicionar:</div>
+ const mwPrev=MW?`<div style="margin-top:12px"><div class="small muted" style="margin-bottom:6px">${MW.items.length} temas encontrados. Distribuídos em dias com capacidade livre, até 2 por dia e nenhum em dia de plantão de 10 h ou mais. Ajuste antes de adicionar:</div>
   <div>${MW.items.map((x,i)=>`<div class="mw-row"><input type="checkbox" data-mw="on" data-i="${i}" ${x.on?'checked':''} aria-label="Incluir ${h(x.theme)}"><span>${h(x.theme)}</span><input class="in" type="date" data-mw="date" data-i="${i}" value="${x.date}" aria-label="Data de ${h(x.theme)}"></div>`).join('')}</div>
   <div class="btns" style="margin-top:10px"><button class="btn pri" data-a="mwAdd">Adicionar ${MW.items.filter(x=>x.on).length} temas à agenda</button><button class="btn" data-a="mwCancel">Descartar</button></div></div>`:'';
  const fitPrev=FIT?`<div>${FIT.options.map((o,i)=>`<div class="opt"><b>${i===0?'Melhor opção':'Alternativa'}: ${h(dLabel(o.date))}${o.time?' às '+h(hm(o.time)):''}</b><span class="small">${h(FIT.title)} · ${h(T(FIT.type).n)}</span><span class="small muted">${h(o.reason||'')}</span><div><button class="btn sm pri" data-a="fitAdd" data-i="${i}">Adicionar este</button></div></div>`).join('')}</div>`:'';
@@ -1080,7 +1081,7 @@ function md(s){
  }
  close();return out;
 }
-const PERSONA='Você é a assistente pessoal de uma médica que faz plantões de pronto-socorro de 12 h como PJ, estuda para a prova de residência pelo cursinho Medway e treina academia e yoga. Responda em português do Brasil. Tom: direto e acolhedor ao mesmo tempo — sincera sobre o problema, sem julgamento, sem sermão. Frases curtas. Use só os dados do contexto; não invente compromissos.';
+const PERSONA='Você é a assistente pessoal de uma médica que faz plantões de pronto-socorro de 10 a 12 h como PJ, estuda para a prova de residência pelo cursinho Medway e treina academia e yoga. Responda em português do Brasil. Tom: direto e acolhedor ao mesmo tempo — sincera sobre o problema, sem julgamento, sem sermão. Frases curtas. Use só os dados do contexto; não invente compromissos.';
 function aiContext(){
  memo={};const t=today();const L=[];
  L.push(`Hoje: ${dLong(t)} (${t}), ${weekLbl(t)} do calendário (treinos e plantões fixos seguem semana ímpar/par).`);
@@ -1459,7 +1460,7 @@ const FORMS={
   const q=(D.aiFitTxt||'').trim();if(!q||!sampleFn)return;
   const ctl=new AbortController();AI.fit={busy:true,text:'',err:'',ctl};FIT=null;render();
   try{
-   const r=await sampleFn.json(`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nPEDIDO: encaixar esta atividade: "${q}".\nRegras: só datas dos próximos 14 dias a partir de hoje; nunca em dia de plantão de 12 h; prefira dia com capacidade livre (capacidade maior que carga) e energia prevista alta; evite a manhã seguinte a plantão noturno; não sobreponha horários de treino ou plantão.\nResponda só com JSON neste formato: {"title":"nome curto da atividade","type":"pessoal|estudo|academia|yoga","options":[{"date":"AAAA-MM-DD","time":"HH:MM ou vazio","reason":"motivo em 1-2 frases"}]} com exatamente 2 opções, a melhor primeiro.`,{signal:ctl.signal});
+   const r=await sampleFn.json(`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nPEDIDO: encaixar esta atividade: "${q}".\nRegras: só datas dos próximos 14 dias a partir de hoje; nunca em dia de plantão de 10 h ou mais; prefira dia com capacidade livre (capacidade maior que carga) e energia prevista alta; evite a manhã seguinte a plantão noturno; não sobreponha horários de treino ou plantão.\nResponda só com JSON neste formato: {"title":"nome curto da atividade","type":"pessoal|estudo|academia|yoga","options":[{"date":"AAAA-MM-DD","time":"HH:MM ou vazio","reason":"motivo em 1-2 frases"}]} com exatamente 2 opções, a melhor primeiro.`,{signal:ctl.signal});
    const opts=(r&&Array.isArray(r.options)?r.options:[]).filter(o=>o&&/^\d{4}-\d{2}-\d{2}$/.test(o.date)&&o.date>=today()).map(o=>({date:o.date,time:/^\d{2}:\d{2}$/.test(o.time||'')?o.time:'',reason:String(o.reason||'')})).slice(0,2);
    if(!opts.length)throw {code:'invalid_json'};
    FIT={title:String(r.title||q).slice(0,80),type:S.settings.types[r.type]&&r.type!=='plantao'?r.type:'pessoal',options:opts};AI.fit.text='';
