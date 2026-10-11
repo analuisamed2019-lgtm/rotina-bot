@@ -1,4 +1,4 @@
-<title>Prontuário Pessoal</title>
+<title>Calendário Pessoal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
@@ -333,7 +333,7 @@ tr.cur td{background:var(--accent-soft)}
 </style>
 
 <header class="top"><div class="top-in">
-  <div class="brand"><b>Prontuário</b><span id="todayLbl"></span></div>
+  <div class="brand"><b>Calendário Pessoal</b><span id="todayLbl"></span></div>
   <span class="spacer"></span>
   <nav class="tabs-top" id="tabsTop" aria-label="Seções"></nav>
   <span class="spacer"></span>
@@ -979,7 +979,7 @@ const icsD=(ds,t)=>ds.replace(/-/g,'')+(t?'T'+t.replace(':','')+'00':'');
 function fold(l){const o=[];while(l.length>73){o.push(l.slice(0,73));l=' '+l.slice(73)}o.push(l);return o.join('\r\n')}
 function buildICS(){
  const now=new Date();const stamp=`${now.getUTCFullYear()}${pad(now.getUTCMonth()+1)}${pad(now.getUTCDate())}T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}00Z`;
- const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Prontuario Pessoal//PT-BR','CALSCALE:GREGORIAN','X-WR-CALNAME:Prontuário'];
+ const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Calendario Pessoal//PT-BR','CALSCALE:GREGORIAN','X-WR-CALNAME:Calendário Pessoal'];
  const ev=(uid,sum,ds,t,endDs,endT,extra=[])=>{L.push('BEGIN:VEVENT',`UID:${uid}@prontuario`,`DTSTAMP:${stamp}`,fold('SUMMARY:'+icsEsc(sum)));
   if(t){L.push(`DTSTART:${icsD(ds,t)}`,`DTEND:${icsD(endDs,endT)}`)}else{L.push(`DTSTART;VALUE=DATE:${icsD(ds)}`,`DTEND;VALUE=DATE:${icsD(addD(ds,1))}`)}
   extra.forEach(x=>L.push(fold(x)));L.push('END:VEVENT')};
@@ -1018,7 +1018,7 @@ async function saveFile(name,data,alt){
 }
 async function exportICS(){
  const ics=buildICS();
- const ok=await saveFile('agenda-prontuario.ics',ics,[{name:'agenda-prontuario.zip',data:()=>zipOne('agenda-prontuario.ics',ics),msg:'Baixado em .zip: descompacte e importe o .ics.'},{name:'agenda-prontuario.txt',data:()=>ics,msg:'Baixado como .txt: renomeie para .ics antes de importar.'}]);
+ const ok=await saveFile('agenda-calendario-pessoal.ics',ics,[{name:'agenda-calendario-pessoal.zip',data:()=>zipOne('agenda-calendario-pessoal.ics',ics),msg:'Baixado em .zip: descompacte e importe o .ics.'},{name:'agenda-calendario-pessoal.txt',data:()=>ics,msg:'Baixado como .txt: renomeie para .ics antes de importar.'}]);
  if(ok===null)sheet('Exportar agenda (.ics)',`<p class="small muted" style="margin:0">Este visualizador não permite baixar arquivos. Copie o conteúdo abaixo, cole num arquivo de texto e salve como <b>agenda.ics</b>.</p><textarea class="in" rows="10" id="icsTxt" readonly>${h(ics)}</textarea><div class="btns"><button class="btn pri" data-a="copyIcs">Copiar</button></div>`);
 }
 
@@ -1177,7 +1177,7 @@ const ACT={
  theme:el=>{S.settings.theme=el.dataset.v;save('settings');settingsSheet()},
  ics:()=>exportICS(),
  copyIcs:()=>{const t=$('#icsTxt');navigator.clipboard?.writeText(t.value).then(()=>toast('Copiado.'),()=>{t.select()})||t.select()},
- backup:async()=>{const ok=await saveFile(`prontuario-backup-${today()}.json`,JSON.stringify(S,null,1));if(ok===null)toast('Este visualizador não permite baixar arquivos.')},
+ backup:async()=>{const ok=await saveFile(`calendario-pessoal-backup-${today()}.json`,JSON.stringify(S,null,1));if(ok===null)toast('Este visualizador não permite baixar arquivos.')},
  goMedway:()=>{tab='ia';render();setTimeout(()=>document.getElementById('aiMwTxt')?.scrollIntoView({block:'center'}),50)},
  aiWeek:()=>aiText('week',`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nTAREFA: Avalie os próximos 7 dias. Diga se a semana está cheia demais, equilibrada ou leve, e por quê. Considere plantões, energia prevista, sono depois de plantão noturno e sinais de procrastinação (tarefas remanejadas várias vezes). Depois dê 2 ou 3 ações concretas (com dia) e termine com uma frase curta de motivação. Formato: um parágrafo de veredito, uma lista curta de ações, a frase final. Até 200 palavras.`),
  aiMot:()=>aiText('mot',`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nTAREFA: Ela pediu motivação agora. Escreva uma mensagem curta (até 70 palavras), honesta e calorosa, que reconheça o momento real dela pelos dados e termine com UM próximo passo pequeno e possível hoje (algo de 5 a 25 minutos). Sem clichês nem listas.`),
