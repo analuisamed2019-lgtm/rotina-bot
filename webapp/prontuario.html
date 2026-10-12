@@ -1018,6 +1018,20 @@ function parseQuick(raw){
  let s=' '+String(raw).replace(/\s+/g,' ').trim()+' ';const t=today();let date=null,time='',end='',guess=false;
  const cut=(re,fn)=>{const m=s.match(re);if(!m)return false;const r=fn(m);if(r===false)return false;s=s.replace(m[0],' ');return true};
  const R=x=>new RegExp(x,'i');
+ // repetição: "toda quinta", "toda quinta par", "terças de semana ímpar", "a cada 2 semanas", "todo dia", "todo dia 10"
+ let rec='none',rwd=null,mday=null;
+ const parW=x=>/^p/i.test(x||'')?'even':x?'odd':null;
+ cut(R(QB+'(?:tod[oa]s?\\s+(?:os\\s+|as\\s+)?)(segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|seg|ter|qua|qui|sex|s[áa]b|dom)s?(?:-feiras?)?(?:\\s+(?:de\\s+|das\\s+|nas\\s+)?(?:semanas?\\s+)?(par|pares|[íi]mpar|[íi]mpares))?'+QE),m=>{rwd=QWD[m[1].toLowerCase()];if(rwd==null)return false;rec=parW(m[2])||'weekly'})||
+ cut(R(QB+'(segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|seg|ter|qua|qui|sex|s[áa]b|dom)s?(?:-feiras?)?\\s+(?:de\\s+|das\\s+|nas\\s+)?semanas?\\s+(par|pares|[íi]mpar|[íi]mpares)'+QE),m=>{rwd=QWD[m[1].toLowerCase()];if(rwd==null)return false;rec=parW(m[2])})||
+ cut(R(QB+'(?:tod[oa]\\s+m[êe]s\\s+(?:no\\s+)?dia|todo\\s+dia|mensalmente\\s+(?:no\\s+)?dia|dia)\\s+(\\d{1,2})\\s+(?:de\\s+)?(?:todo|cada)\\s+m[êe]s'+QE),m=>{mday=+m[1];rec='monthly'})||
+ cut(R(QB+'(?:tod[oa]\\s+m[êe]s\\s+(?:no\\s+)?dia|todo\\s+dia|mensalmente\\s+(?:no\\s+)?dia)\\s+(\\d{1,2})'+QE),m=>{mday=+m[1];rec='monthly'})||
+ cut(R(QB+'(?:todos\\s+os\\s+dias|todo\\s+dia|diariamente)'+QE),()=>{rec='daily'})||
+ cut(R(QB+'(?:a\\s+cada\\s+(?:2|duas)\\s+semanas|a\\s+cada\\s+15\\s+dias|quinzenal(?:mente)?)'+QE),()=>{rec='biweekly'})||
+ cut(R(QB+'(?:tod[oa]\\s+m[êe]s|mensalmente|mensal)'+QE),()=>{rec='monthly'})||
+ cut(R(QB+'(?:toda\\s+semana|semanalmente|semanal)'+QE),()=>{rec='weekly'});
+ if(rec!=='none'&&rwd==null&&(rec==='weekly'||rec==='biweekly'))cut(R(QB+'(?:às|as|nas|na|no|nos)?\\s*'+'(segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|seg|ter|qua|qui|sex|s[áa]b|dom)s?(?:-feiras?)?'+QE),m=>{rwd=QWD[m[1].toLowerCase()];if(rwd==null)return false});
+ if(rec==='weekly'&&rwd!=null)cut(R(QB+'(?:de\\s+|das\\s+|nas\\s+)?semanas?\\s+(par|pares|[íi]mpar|[íi]mpares)'+QE),m=>{rec=parW(m[1])});
+ cut(R(QB+'(?:a\\s+partir\\s+de|come[çc]ando|desde)'+QE),()=>{});
  cut(R(QB+'depois de amanh[ãa]'+QE),()=>{date=addD(t,2)})||cut(R(QB+'amanh[ãa]'+QE),()=>{date=addD(t,1)})||cut(R(QB+'hoje'+QE),()=>{date=t})||
  cut(R(QB+'(?:dia\\s+)?(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?'+QE),m=>{const d=qDate(m[3],m[2],m[1]);if(!d)return false;date=d})||
  cut(R(QB+'(?:dia\\s+)?(\\d{1,2})\\s+de\\s+([a-zç]+)(?:\\s+de\\s+(\\d{4}))?'+QE),m=>{const mo=QMO[m[2].toLowerCase()];if(!mo)return false;const d=qDate(m[3],mo,m[1]);if(!d)return false;date=d})||
@@ -1028,27 +1042,35 @@ function parseQuick(raw){
  cut(R('(?:'+QB+'(?:às|as|@)\\s*)?'+QB+'(\\d{1,2})(?::(\\d{2})|h(\\d{2})?)(?:\\s*(?:h|hs|horas))?'+QE),m=>{time=qhm(m[1],m[2]||m[3]);if(!time)return false})||
  cut(R(QB+'(?:às|as)\\s+(\\d{1,2})'+QE),m=>{time=qhm(m[1]);if(!time)return false});
  if(end&&end<=time)end='';
+ if(rec!=='none'){
+  let d=date||t;
+  if(mday){let c=d;for(let i=0;i<62;i++){if(P(c).getDate()===mday)break;c=addD(c,1)}d=c}
+  else if(rwd!=null){for(let i=0;i<21;i++){if(P(d).getDay()===rwd&&(rec!=='odd'&&rec!=='even'||isoPar(d)===rec))break;d=addD(d,1)}}
+  else if(rec==='odd'||rec==='even'){for(let i=0;i<14&&isoPar(d)!==rec;i++)d=addD(d,1)}
+  date=d;
+ }
  if(!date){date=t;guess=true}
  let title=s.replace(/\s+/g,' ').trim().replace(/^(incluir|adicionar|agendar|marcar|colocar|anotar|lembrar de|lembrar)\s+/i,'').replace(/\s+(no|na|em|para|pra|dia|às|as|de|do|da|,|-)$/i,'').replace(/^(no|na|em|para|pra|de|,|-)\s+/i,'').replace(/[,;.\s-]+$/,'').trim();
  if(!title)title='Compromisso';title=title.charAt(0).toUpperCase()+title.slice(1);
  const low=title.toLowerCase();
  const type=/\byoga\b/.test(low)?'yoga':/academia|treino|muscula|personal/.test(low)?'academia':/estud|aula|simulado|revis[aã]o|medway|quest[õo]es/.test(low)?'estudo':'pessoal';
- return {title,date,time,end,type,guess};
+ return {title,date,time,end,type,guess,rec};
 }
 function quickConflicts(q){if(!q.time)return '';const a=toMin(q.time),b=q.end?toMin(q.end):a+60;
  const sh=S.shifts.filter(x=>x.date===q.date).find(x=>{let s0=toMin(x.start),e0=toMin(x.end);if(e0<=s0)e0+=1440;return a<e0&&b>s0});
  return sh?`coincide com plantão ${hm(sh.start)}–${hm(sh.end)}`:''}
 function quickPrevHTML(txt){const ls=String(txt||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,20);
- if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>aniversário da Bia 25/10</i>.</p>';
- return ls.map(l=>{const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b><span class="tiny muted">${dLabel(q.date)}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
+ if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>terapia toda quinta par 16h</i> · <i>pagar aluguel todo dia 10</i>.</p>';
+ return ls.map(l=>{const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b>${q.rec!=='none'?`<span class="tiny" style="color:var(--accent);font-weight:700">↻ ${recLabel(q.rec,q.date)}</span>`:''}<span class="tiny muted">${q.rec!=='none'?'começa ':''}${dLabel(q.date)}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
+const recLabel=(r,ds)=>{const g=P(ds).getDay(),w=WDL[g],td=g===0||g===6?'Todo':'Toda';return {daily:'Todo dia',weekly:`${td} ${w}`,odd:`${td} ${w} de semana ímpar`,even:`${td} ${w} de semana par`,biweekly:`A cada 2 semanas (${w})`,monthly:`Todo dia ${P(ds).getDate()}`}[r]||''};
 let QK_RECENT=[];
 function vQuick(){
- const rec=QK_RECENT.map(id=>findTask(id)).filter(Boolean);
+ const rec=QK_RECENT.map(x=>x.k==='ser'?{...(S.series.find(r=>r.id===x.id)||{}),k:'ser',date:(S.series.find(r=>r.id===x.id)||{}).start}:{...(findTask(x.id)||{}),k:'task'}).filter(t=>t.id);
  return `<div class="ph"><div><h1>Agendar</h1><div class="sub">Compromissos com dia certo: entram direto na agenda e nunca são remanejados</div></div></div>
- <div class="cols"><section class="card span2"><form data-f="quick"><label class="field"><span>O que e quando</span><textarea class="in" id="qkTxt" data-d rows="3" placeholder="dentista terça às 15h&#10;reunião contador dia 20 das 14 às 15">${h(D.qkTxt||'')}</textarea></label>
+ <div class="cols"><section class="card span2"><form data-f="quick"><label class="field"><span>O que e quando</span><textarea class="in" id="qkTxt" data-d rows="3" placeholder="dentista terça às 15h&#10;terapia toda quinta par 16h">${h(D.qkTxt||'')}</textarea></label>
  <div class="qk-prev" id="qkPrev">${quickPrevHTML(D.qkTxt)}</div>
  <div class="btns" style="margin-top:10px"><button class="btn pri">Agendar</button><span class="tiny faint" style="align-self:center">Enter agenda · Shift+Enter nova linha</span></div></form></section>
- <section class="card span2"><div class="card-h"><h3>Agendados agora</h3></div>${rec.length?`<ul class="lst">${rec.map(t=>`<li><span class="dot" style="background:${T(t.type).c}"></span><button class="grow" data-a="open" data-k="task" data-id="${t.id}"><b>${h(t.title)}</b><span class="tiny faint">${dLabel(t.date)}${t.time?' · '+hm(t.time)+(t.end?'–'+hm(t.end):''):''}</span></button><button class="btn sm" data-a="quickUndo" data-id="${t.id}">Desfazer</button></li>`).join('')}</ul>`:'<p class="empty">O que você agendar aqui aparece nesta lista, com opção de desfazer.</p>'}
+ <section class="card span2"><div class="card-h"><h3>Agendados agora</h3></div>${rec.length?`<ul class="lst">${rec.map(t=>`<li><span class="dot" style="background:${T(t.type).c}"></span><button class="grow" data-a="open" data-k="${t.k}" data-id="${t.id}" data-day="${t.date}"><b>${h(t.title)}</b><span class="tiny faint">${t.k==='ser'?'↻ '+recLabel(t.rule,t.start)+' · desde ':''}${dLabel(t.date)}${t.time?' · '+hm(t.time)+(t.end?'–'+hm(t.end):''):''}</span></button><button class="btn sm" data-a="quickUndo" data-k="${t.k}" data-id="${t.id}">Desfazer</button></li>`).join('')}</ul>`:'<p class="empty">O que você agendar aqui aparece nesta lista, com opção de desfazer.</p>'}
  <p class="tiny faint" style="margin:8px 0 0">Para a IA escolher o melhor dia, use "Adicionar atividade · IA" na tela inicial.</p></section></div>`;
 }
 
@@ -1493,7 +1515,7 @@ const ACT={
  mailTrashAll:async el=>{if(!armed(el))return;await mailTrash(promoList().map(t=>t.id))},
  mailAI:()=>{const imp=mailGroups().imp.slice(0,30).map(t=>`- ${mailWhen(t.date)} | ${senderName(t.sender)} <${senderKey(t.sender)}> | ${t.subject} | ${t.snippet.slice(0,220)}${t.unread?' | NÃO LIDO':''}`).join('\n');
   aiText('mail',`${PERSONA}\n\nHoje é ${dLong(today())}. Estes são os e-mails que o app classificou como importantes na caixa de entrada dela (data | remetente | assunto | trecho):\n${imp||'(nenhum)'}\n\nTAREFA: diga em até 150 palavras o que realmente pede ação dela, em ordem de urgência, com prazo quando houver (ex.: inscrição, nota fiscal, pagamento, prova, mudança de regra profissional). Depois, em uma linha, o que pode ser ignorado. Formato: lista curta com "o quê → o que fazer". Não invente prazos que não estão nos trechos.`)},
- quickUndo:el=>{S.tasks=S.tasks.filter(x=>x.id!==el.dataset.id);QK_RECENT=QK_RECENT.filter(x=>x!==el.dataset.id);save('tasks');toast('Desfeito.')},
+ quickUndo:el=>{const id=el.dataset.id;if(el.dataset.k==='ser'){S.series=S.series.filter(x=>x.id!==id);save('series')}else{S.tasks=S.tasks.filter(x=>x.id!==id);save('tasks')}QK_RECENT=QK_RECENT.filter(x=>x.id!==id);render();toast('Desfeito.')},
  quickTab:()=>{closeSheet();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
  cardDel:el=>{if(!armed(el))return;S.card.entries=S.card.entries.filter(e=>e.id!==el.dataset.id);save('card')},
@@ -1622,8 +1644,10 @@ const FORMS={
  invOther:f=>{const m=f.dataset.m,v=parseBRL($('#ioV').value);if(!(v>=0)){toast('Informe o valor (ex.: 3.500,00).');return}if(v>0)S.money.inv.push({id:nid(),desc:'Aporte mensal',v,date:$('#ioDate').value||invDateFor(m),ts:Date.now()});S.money.plan[m]={st:v>0?'done':'skip',at:Date.now()};save('money');closeSheet();toast('Aporte registrado.')},
  cardInvT:f=>{const v=parseBRL($('#ciT').value);if(!(v>=0)){toast('Valor inválido.');return}S.card.investT=v;save('card');closeSheet();toast('Aporte mensal salvo.')},
  quick:f=>{const ls=String(D.qkTxt||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!ls.length)return;const msgs=[];
-  for(const l of ls){const q=parseQuick(l);const id=nid();S.tasks.push({id,title:q.title,type:q.type,date:q.date,time:q.time,end:q.end||'',fixed:true,done:false,created:Date.now()});QK_RECENT.unshift(id);msgs.push(`${q.title} → ${dLabel(q.date)}${q.time?' '+hm(q.time):''}`)}
-  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks');toast(ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`)},
+  for(const l of ls){const q=parseQuick(l);const id=nid();
+   if(q.rec!=='none'){S.series.push({id,title:q.title,type:q.type,time:q.time,start:q.date,rule:q.rec,skip:[],done:[]});QK_RECENT.unshift({k:'ser',id});msgs.push(`${q.title} → ${recLabel(q.rec,q.date).toLowerCase()}${q.time?' '+hm(q.time):''}`)}
+   else{S.tasks.push({id,title:q.title,type:q.type,date:q.date,time:q.time,end:q.end||'',fixed:true,done:false,created:Date.now()});QK_RECENT.unshift({k:'task',id});msgs.push(`${q.title} → ${dLabel(q.date)}${q.time?' '+hm(q.time):''}`)}}
+  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks','series');toast(ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`)},
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
  addExp:f=>{const v=parseBRL(D.mxV);const name=(D.mxName||'').trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#mxDate').value||today()});D.mxName='';D.mxV='';save('money')},
  addInv:f=>{const v=parseBRL(D.ivV);if(!(v>0)){toast('Informe o valor do aporte (ex.: 1.500,00).');return}S.money.inv.push({id:nid(),desc:(D.ivDesc||'').trim(),v,date:$('#ivDate').value||today()});D.ivDesc='';D.ivV='';save('money')},
