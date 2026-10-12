@@ -1041,6 +1041,7 @@ function parseQuick(raw){
  cut(R(QB+'(\\d{1,2})(?:[:h](\\d{2}))?h?\\s*(?:-|–|às|as|até)\\s*(\\d{1,2})(?:[:h](\\d{2}))?\\s*(?:h|hs)'+QE),m=>{time=qhm(m[1],m[2]);end=qhm(m[3],m[4]);if(!time)return false})||
  cut(R('(?:'+QB+'(?:às|as|@)\\s*)?'+QB+'(\\d{1,2})(?::(\\d{2})|h(\\d{2})?)(?:\\s*(?:h|hs|horas))?'+QE),m=>{time=qhm(m[1],m[2]||m[3]);if(!time)return false})||
  cut(R(QB+'(?:às|as)\\s+(\\d{1,2})'+QE),m=>{time=qhm(m[1]);if(!time)return false});
+ cut(R(QB+'(?:por|dura[çc][aã]o\\s+de|durante)\\s+(\\d{1,2})\\s*(?:(h|horas?)\\s*(\\d{2})?|(min|minutos?))'+QE),m=>{if(!time)return false;const mins=m[4]?+m[1]:(+m[1])*60+(+(m[3]||0));const e=toMin(time)+mins;if(e>=1440)return false;end=`${pad(Math.floor(e/60))}:${pad(e%60)}`});
  if(end&&end<=time)end='';
  if(rec!=='none'){
   let d=date||t;
@@ -1056,11 +1057,17 @@ function parseQuick(raw){
  const type=/\byoga\b/.test(low)?'yoga':/academia|treino|muscula|personal/.test(low)?'academia':/estud|aula|simulado|revis[aã]o|medway|quest[õo]es/.test(low)?'estudo':'pessoal';
  return {title,date,time,end,type,guess,rec};
 }
-function quickConflicts(q){if(!q.time)return '';const a=toMin(q.time),b=q.end?toMin(q.end):a+60;
- const sh=S.shifts.filter(x=>x.date===q.date).find(x=>{let s0=toMin(x.start),e0=toMin(x.end);if(e0<=s0)e0+=1440;return a<e0&&b>s0});
- return sh?`coincide com plantão ${hm(sh.start)}–${hm(sh.end)}`:''}
+// ocupação de um dia em minutos: plantões (inclusive o noturno que vem do dia anterior) e tudo que tem horário (sem término = 1 h)
+function busyOn(ds,skipId){const out=[];
+ for(const x of S.shifts){if(x.date===ds){let a=toMin(x.start),b=toMin(x.end);if(b<=a)b+=1440;out.push({a,b,label:`plantão ${hm(x.start)}–${hm(x.end)}`})}
+  else if(x.date===addD(ds,-1)&&shiftCross(x))out.push({a:0,b:toMin(x.end),label:`plantão noturno até ${hm(x.end)}`})}
+ for(const it of itemsOn(ds)){if(it.k==='shift'||!it.time||it.id===skipId)continue;const a=toMin(it.time),e=it.o.end&&it.o.end>it.time?toMin(it.o.end):a+60;
+  out.push({a,b:e,label:`${it.type==='estudo'?'Estudo':it.title} ${hm(it.time)}${it.o.end?'–'+hm(it.o.end):''}`})}
+ return out}
+function conflictsFor(ds,time,end,skipId){if(!time)return [];const a=toMin(time),b=end&&end>time?toMin(end):a+60;return busyOn(ds,skipId).filter(x=>a<x.b&&b>x.a).map(x=>x.label)}
+function quickConflicts(q){const c=conflictsFor(q.date,q.time,q.end);return c.length?`coincide com ${c.join(' e ')}`:''}
 function quickPrevHTML(txt){const ls=String(txt||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,20);
- if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>terapia toda quinta par 16h</i> · <i>pagar aluguel todo dia 10</i>.</p>';
+ if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>terapia toda quinta par 16h por 50 min</i> · <i>pagar aluguel todo dia 10</i>.</p>';
  return ls.map(l=>{const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b>${q.rec!=='none'?`<span class="tiny" style="color:var(--accent);font-weight:700">↻ ${recLabel(q.rec,q.date)}</span>`:''}<span class="tiny muted">${q.rec!=='none'?'começa ':''}${dLabel(q.date)}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
 const recLabel=(r,ds)=>{const g=P(ds).getDay(),w=WDL[g],td=g===0||g===6?'Todo':'Toda';return {daily:'Todo dia',weekly:`${td} ${w}`,odd:`${td} ${w} de semana ímpar`,even:`${td} ${w} de semana par`,biweekly:`A cada 2 semanas (${w})`,monthly:`Todo dia ${P(ds).getDate()}`}[r]||''};
 let QK_RECENT=[];
@@ -1315,12 +1322,12 @@ function buildICS(){
  for(const s of S.shifts)ev(s.id,`Plantão ${kindName(s.kind)}`,s.date,s.start,shiftCross(s)?addD(s.date,1):s.date,s.end,[`DESCRIPTION:${icsEsc(shiftHours(s)+' h · '+brl(shiftValue(s)))}`]);
  for(const r of S.series){
   if(r.rule==='odd'||r.rule==='even'){const t0=today();let d=r.start<addD(t0,-60)?addD(t0,-60):r.start;const off=diffD(r.start,d)%7;if(off)d=addD(d,7-off);const lim=r.until?addD(r.until,-1):addD(t0,365);
-   for(;d<=lim&&d<=addD(t0,365);d=addD(d,7))if(occurs(r,d)){if(r.time){const [d2,t2]=plus1h(d,r.time);ev(r.id+'-'+d,name(r),d,r.time,d2,t2)}else ev(r.id+'-'+d,name(r),d,'')}
+   for(;d<=lim&&d<=addD(t0,365);d=addD(d,7))if(occurs(r,d)){if(r.time){const [d2,t2]=r.end&&r.end>r.time?[d,r.end]:plus1h(d,r.time);ev(r.id+'-'+d,name(r),d,r.time,d2,t2)}else ev(r.id+'-'+d,name(r),d,'')}
    continue}
   let rule={daily:'FREQ=DAILY',weekly:'FREQ=WEEKLY',biweekly:'FREQ=WEEKLY;INTERVAL=2',monthly:'FREQ=MONTHLY'}[r.rule]||'FREQ=WEEKLY';
   if(r.until)rule+=`;UNTIL=${icsD(addD(r.until,-1))}T235959`;
   const ex=(r.skip||[]).map(d=>r.time?`EXDATE:${icsD(d,r.time)}`:`EXDATE;VALUE=DATE:${icsD(d)}`);
-  if(r.time){const [d2,t2]=plus1h(r.start,r.time);ev(r.id,name(r),r.start,r.time,d2,t2,['RRULE:'+rule,...ex])}else ev(r.id,name(r),r.start,'','','',['RRULE:'+rule,...ex]);
+  if(r.time){const [d2,t2]=r.end&&r.end>r.time?[r.start,r.end]:plus1h(r.start,r.time);ev(r.id,name(r),r.start,r.time,d2,t2,['RRULE:'+rule,...ex])}else ev(r.id,name(r),r.start,'','','',['RRULE:'+rule,...ex]);
  }
  L.push('END:VCALENDAR');return L.join('\r\n')+'\r\n';
 }
@@ -1371,11 +1378,15 @@ function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoa
   <label class="field"><span id="tfTitleL">${tp==='estudo'?'Tema (na agenda aparece só "Estudo")':'Título'}</span><input class="in" id="tfTitle" value="${h(title)}" required placeholder="${tp==='estudo'?'Ex.: Cardiologia – IC':'Ex.: pagar boleto'}"></label>
   <div class="grid2"><label class="field"><span>Tipo</span><select class="in" id="tfType">${typeOpts(tp)}</select></label>
   <label class="field"><span>${mode==='editSeries'?'Começa em':'Data'}</span><input class="in" type="date" id="tfDate" value="${dt}" required></label></div>
-  <div class="grid2"><label class="field"><span>Horário (opcional)</span><input class="in" type="time" id="tfTime" value="${o.time||''}"></label>
-  ${showRec?`<label class="field"><span>Repetição</span><select class="in" id="tfRec">${Object.entries(REC).filter(([k])=>mode==='new'||k!=='none').map(([k,l])=>`<option value="${k}" ${(ser?ser.rule:'none')===k?'selected':''}>${l}</option>`).join('')}</select></label>`:'<span></span>'}</div>
+  <div class="grid2"><label class="field"><span>Início (opcional)</span><input class="in" type="time" id="tfTime" value="${o.time||''}" data-tfc></label><label class="field"><span>Término (opcional)</span><input class="in" type="time" id="tfEnd" value="${o.end||''}" data-tfc></label></div>
+  <p class="tiny" id="tfConf" style="color:var(--warn);margin:0"></p>
+  <div class="grid2">${showRec?`<label class="field"><span>Repetição</span><select class="in" id="tfRec">${Object.entries(REC).filter(([k])=>mode==='new'||k!=='none').map(([k,l])=>`<option value="${k}" ${(ser?ser.rule:'none')===k?'selected':''}>${l}</option>`).join('')}</select></label>`:'<span></span>'}</div>
   ${mode==='new'&&capacity(dt)===0?'<p class="tiny" style="color:var(--warn);margin:0">Esse dia não tem espaço (plantão longo ou energia baixa prevista).</p>':''}
   <div class="btns"><button class="btn pri">Salvar</button><button type="button" class="btn" data-a="closeSheet">Cancelar</button></div></form>`);
+ tfConfUpdate();
 }
+function tfConfUpdate(){const el=$('#tfConf');if(!el)return;const f=$('#sheet form');const skip=f&&f.dataset.mode==='editTask'?f.dataset.id:f&&f.dataset.mode==='editSeries'?f.dataset.id:null;
+ const c=conflictsFor($('#tfDate').value,$('#tfTime').value,$('#tfEnd').value,skip);el.textContent=c.length?`⚠ Coincide com ${c.join(' e ')}`:''}
 function shiftForm(s,ds){
  const o=s||{date:ds||today(),start:'07:00',end:'19:00',kind:'tutora'};
  sheet(s?'Editar plantão':'Novo plantão',`<form class="sh-b" data-f="shift" data-id="${s?s.id:''}">
@@ -1407,7 +1418,7 @@ function availOf(ds){
 function dayPanel(ds){
  const its=itemsOn(ds),a=availOf(ds),e=S.energy[ds];
  const rows=its.map(it=>{
-  const tm=it.k==='shift'?`${hm(it.o.start)}–${hm(it.o.end)}`:it.time?hm(it.time):'dia todo';
+  const tm=it.k==='shift'?`${hm(it.o.start)}–${hm(it.o.end)}`:it.time?hm(it.time)+(it.o.end&&it.o.end>it.time?'–'+hm(it.o.end):''):'dia todo';
   const title=it.k==='shift'?`Plantão ${kindName(it.o.kind)}`:it.type==='estudo'?`Estudo · ${it.title}`:it.title;
   const sub=it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`;
   return `<li><span class="tm">${tm}</span><span class="dot" style="background:${T(it.type).c}"></span><button class="grow" data-a="open" data-k="${it.k}" data-id="${it.id}" data-day="${ds}"><b>${h(title)}</b><span class="tiny faint">${h(sub)}</span></button>${it.k!=='shift'?`<button class="btn sm ${it.done?'pri':''}" data-a="toggle" data-k="${it.k}" data-id="${it.id}" data-day="${ds}" aria-pressed="${it.done}">${it.done?'Feito':'Concluir'}</button>`:''}</li>`;
@@ -1446,7 +1457,7 @@ function openItem(k,id,day){
   return;
  }
  const r=S.series.find(x=>x.id===id);if(!r)return;const done=(r.done||[]).includes(day);
- sheet(T(r.type).n,`<div class="det"><span class="t">${h(r.title)}</span><span class="small muted">${dLong(day)}${r.time?' · '+hm(r.time):''}</span><span class="small faint">${REC[r.rule]}</span></div>
+ sheet(T(r.type).n,`<div class="det"><span class="t">${h(r.title)}</span><span class="small muted">${dLong(day)}${r.time?' · '+hm(r.time)+(r.end?'–'+hm(r.end):''):''}</span><span class="small faint">${REC[r.rule]}</span></div>
  <div class="btns"><button class="btn pri" data-a="toggle" data-k="ser" data-id="${r.id}" data-day="${day}" data-close="1">${done?'Desmarcar':'Concluir'}</button><button class="btn" data-a="editOcc" data-id="${r.id}" data-day="${day}">Editar / mover este dia</button></div>
  <div class="btns"><button class="btn" data-a="skipOcc" data-id="${r.id}" data-day="${day}">Pular só este dia</button><button class="btn" data-a="editSeries" data-id="${r.id}">Editar a série</button></div>
  <div class="sh-sec"><h4>Excluir</h4><div class="btns"><button class="btn danger" data-a="endSeries" data-id="${r.id}" data-day="${day}">Este e os próximos</button><button class="btn danger" data-a="delSeries" data-id="${r.id}">Toda a série</button></div></div>`);
@@ -1597,6 +1608,7 @@ document.addEventListener('input',e=>{
  if(el.hasAttribute('data-d')&&el.id)D[el.id]=el.value;
  if(el.id==='qkTxt'){const pv=document.getElementById('qkPrev');if(pv)pv.innerHTML=quickPrevHTML(el.value)}
  if(el.hasAttribute('data-calc'))calcShift();
+ if(el.hasAttribute('data-tfc')||el.id==='tfDate')tfConfUpdate();
  if(el.dataset.mw&&MW){const x=MW.items[+el.dataset.i];if(!x)return;if(el.dataset.mw==='date')x.date=el.value;}
  if(el.id==='tfType'){const l=$('#tfTitleL');if(l)l.textContent=el.value==='estudo'?'Tema (na agenda aparece só "Estudo")':'Título'}
 });
@@ -1614,16 +1626,17 @@ const FORMS={
  note:f=>{const v=$('#ntText').value.trim();if(!v)return;const id=f.dataset.id;const now=Date.now();
   if(id){const n=S.notes.find(x=>x.id===id);if(n){n.text=v;n.upd=now}}else S.notes.push({id:nid(),text:v,ts:now,upd:now,pin:false});save('notes');closeSheet()},
  task:f=>{
-  const mode=f.dataset.mode,title=$('#tfTitle').value.trim(),type=$('#tfType').value,date=$('#tfDate').value,time=$('#tfTime').value,rec=$('#tfRec')?.value||'none';
+  const mode=f.dataset.mode,title=$('#tfTitle').value.trim(),type=$('#tfType').value,date=$('#tfDate').value,time=$('#tfTime').value,rec=$('#tfRec')?.value||'none';let end=$('#tfEnd').value;if(!time||end<=time)end='';
   if(!title||!date)return;
+  const skipC=mode==='editTask'||mode==='editSeries'?f.dataset.id:null;const cf=conflictsFor(date,time,end,skipC);const warnC=cf.length?` ⚠ Coincide com ${cf.join(' e ')}.`:'';
   if(mode==='new'){
-   if(rec==='none')S.tasks.push({id:nid(),title,type,date,time,done:false,created:Date.now()});
-   else S.series.push({id:nid(),title,type,time,start:date,rule:rec,skip:[],done:[]});
+   if(rec==='none')S.tasks.push({id:nid(),title,type,date,time,end,done:false,created:Date.now()});
+   else S.series.push({id:nid(),title,type,time,end,start:date,rule:rec,skip:[],done:[]});
    save(rec==='none'?'tasks':'series');closeSheet();
-   if(rec==='none'&&type!=='academia'&&type!=='yoga'){memo={};const c=capacity(date),l=load(date);if(l>c)toast(c===0?`${dLabel(date)} não tem espaço previsto. Considere outro dia.`:`${dLabel(date)} passou do limite (${l} de ${c}).`);else toast('Adicionado.')}else toast('Adicionado.');
-  }else if(mode==='editTask'){const t=findTask(f.dataset.id);if(!t)return;Object.assign(t,{title,type,date,time});save('tasks');closeSheet()}
-  else if(mode==='editSeries'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;Object.assign(r,{title,type,time,start:date,rule:rec});save('series');closeSheet();toast('Série atualizada.')}
-  else if(mode==='editOcc'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;r.skip=[...(r.skip||[]),f.dataset.day];S.tasks.push({id:nid(),title,type,date,time,done:(r.done||[]).includes(f.dataset.day),created:Date.now(),fromSeries:r.id});save('series','tasks');closeSheet();toast('Só este dia foi alterado.')}
+   if(rec==='none'&&type!=='academia'&&type!=='yoga'){memo={};const c=capacity(date),l=load(date);if(l>c)toast((c===0?`${dLabel(date)} não tem espaço previsto. Considere outro dia.`:`${dLabel(date)} passou do limite (${l} de ${c}).`)+warnC);else toast('Adicionado.'+warnC)}else toast('Adicionado.'+warnC);
+  }else if(mode==='editTask'){const t=findTask(f.dataset.id);if(!t)return;Object.assign(t,{title,type,date,time,end});save('tasks');closeSheet();if(warnC)toast('Salvo.'+warnC)}
+  else if(mode==='editSeries'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;Object.assign(r,{title,type,time,end,start:date,rule:rec});save('series');closeSheet();toast('Série atualizada.'+warnC)}
+  else if(mode==='editOcc'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;r.skip=[...(r.skip||[]),f.dataset.day];S.tasks.push({id:nid(),title,type,date,time,end,done:(r.done||[]).includes(f.dataset.day),created:Date.now(),fromSeries:r.id});save('series','tasks');closeSheet();toast('Só este dia foi alterado.'+warnC)}
  },
  shift:f=>{
   const id=f.dataset.id,date=$('#sfDate').value,start=$('#sfStart').value,end=$('#sfEnd').value,kind=$('#sfKind').value;
@@ -1645,7 +1658,7 @@ const FORMS={
  cardInvT:f=>{const v=parseBRL($('#ciT').value);if(!(v>=0)){toast('Valor inválido.');return}S.card.investT=v;save('card');closeSheet();toast('Aporte mensal salvo.')},
  quick:f=>{const ls=String(D.qkTxt||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!ls.length)return;const msgs=[];
   for(const l of ls){const q=parseQuick(l);const id=nid();
-   if(q.rec!=='none'){S.series.push({id,title:q.title,type:q.type,time:q.time,start:q.date,rule:q.rec,skip:[],done:[]});QK_RECENT.unshift({k:'ser',id});msgs.push(`${q.title} → ${recLabel(q.rec,q.date).toLowerCase()}${q.time?' '+hm(q.time):''}`)}
+   if(q.rec!=='none'){S.series.push({id,title:q.title,type:q.type,time:q.time,end:q.end||'',start:q.date,rule:q.rec,skip:[],done:[]});QK_RECENT.unshift({k:'ser',id});msgs.push(`${q.title} → ${recLabel(q.rec,q.date).toLowerCase()}${q.time?' '+hm(q.time):''}`)}
    else{S.tasks.push({id,title:q.title,type:q.type,date:q.date,time:q.time,end:q.end||'',fixed:true,done:false,created:Date.now()});QK_RECENT.unshift({k:'task',id});msgs.push(`${q.title} → ${dLabel(q.date)}${q.time?' '+hm(q.time):''}`)}}
   QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks','series');toast(ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`)},
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
