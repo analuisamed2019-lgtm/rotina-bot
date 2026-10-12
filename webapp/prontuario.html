@@ -332,26 +332,44 @@ tr.cur td{background:var(--accent-soft)}
 .mv-nav b{font-family:var(--font-d);font-size:17px;text-transform:capitalize}
 .mv{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;margin-top:8px}
 .mv .wd{font-size:10.5px;color:var(--fg-3);font-weight:700;padding:3px 0;text-transform:uppercase;text-align:center}
-.mv-c{min-height:58px;border-radius:9px;padding:5px 3px;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--surface-2);min-width:0;text-align:left}
+.mv-c{min-height:92px;border-radius:8px;padding:4px 3px 6px;display:flex;flex-direction:column;align-items:stretch;gap:3px;background:var(--surface-2);min-width:0;text-align:left;position:relative;overflow:hidden}
 .mv-c:hover{outline:1px solid var(--line-2)}
 .mv-c.out{opacity:.45}
 .mv-c.sel{outline:2px solid var(--accent);outline-offset:-2px}
-.mv-top{display:flex;flex-direction:column;align-items:center;gap:2px}
-.mv-n{font-weight:700;font-size:13px;font-variant-numeric:tabular-nums}
+.mv-c.av-ok{box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--good) 70%,transparent)}
+.mv-c.av-full{box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--warn) 75%,transparent)}
+.mv-c.av-off{box-shadow:inset 0 -3px 0 color-mix(in srgb,var(--bad) 70%,transparent)}
+.mv-top{display:flex;align-items:center;justify-content:space-between;gap:2px}
+.mv-n{font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums;padding:0 2px}
 .mv-c.today .mv-n{background:var(--accent);color:var(--accent-fg);border-radius:6px;padding:0 5px}
-.av{font-size:10.5px;font-weight:700;border-radius:5px;padding:0 4px;line-height:16px;white-space:nowrap}
+.av{display:none;font-size:10.5px;font-weight:700;border-radius:5px;padding:0 4px;line-height:16px;white-space:nowrap}
 .av.ok{background:color-mix(in srgb,var(--good) 16%,var(--surface));color:var(--good)}
 .av.full{background:color-mix(in srgb,var(--warn) 18%,var(--surface));color:var(--warn)}
 .av.off{background:color-mix(in srgb,var(--bad) 14%,var(--surface));color:var(--bad)}
-.mv-it{display:none}
+.mv-it{display:flex;flex-direction:column;gap:2px;min-width:0}
+.mv-it span{--c:#888;font-size:8.8px;letter-spacing:-.02em;line-height:1.2;font-weight:600;white-space:normal;overflow:hidden;overflow-wrap:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;border-radius:3px;padding:1px 2px;background:color-mix(in srgb,var(--c) 18%,var(--surface));border-left:2px solid var(--c)}
+.mv-it span i{font-style:normal;display:none;color:var(--fg-2)}
+.mv-it em{font-style:normal;color:var(--fg-3);font-size:9.5px;padding-left:2px}
 @container (min-width:700px){
-  .mv-c{min-height:108px;align-items:stretch;padding:6px}
-  .mv-top{flex-direction:row;justify-content:space-between}
-  .mv-c .dots{display:none}
-  .mv-it{display:flex;flex-direction:column;gap:2px;min-width:0}
-  .mv-it span{--c:#888;font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;border-radius:4px;padding:1px 4px;background:color-mix(in srgb,var(--c) 16%,var(--surface))}
-  .mv-it em{font-style:normal;color:var(--fg-3);font-size:10.5px;padding-left:4px}
+  .mv-c{min-height:116px;padding:6px}
+  .av{display:inline}
+  .mv-c.av-ok,.mv-c.av-full,.mv-c.av-off{box-shadow:none}
+  .mv-it span{font-size:11px;padding:1px 4px;display:block;white-space:nowrap;text-overflow:ellipsis}
+  .mv-it span i{display:inline}
+  .mv-it em{font-size:10.5px}
 }
+.mv-list{display:flex;flex-direction:column;margin-top:8px}
+.mv-row{display:grid;grid-template-columns:64px minmax(0,1fr);gap:10px;padding:9px 2px;border-top:1px solid var(--line);text-align:left;width:100%}
+.mv-row:first-child{border-top:0}
+.mv-row.today .mv-rd b{color:var(--accent)}
+.mv-rd{display:flex;flex-direction:column;line-height:1.15}
+.mv-rd span{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-3);font-weight:700}
+.mv-rd b{font-family:var(--font-d);font-size:18px}
+.mv-ri{display:flex;flex-direction:column;gap:3px;min-width:0;font-size:14px}
+.mv-ri div{display:flex;gap:8px;align-items:baseline;min-width:0}
+.mv-ri div i{font-style:normal;font-weight:700;font-size:12.5px;color:var(--fg-2);min-width:62px;font-variant-numeric:tabular-nums}
+.mv-ri div span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:759px){ .sh.wide{top:0;max-height:none;border-radius:0;padding-top:calc(6px + env(safe-area-inset-top,0px))} }
 .mv-day{margin-top:14px;border-top:1px solid var(--line);padding-top:12px;display:flex;flex-direction:column;gap:10px}
 .mv-day h4{font-family:var(--font-d);font-size:17px}
 .dp-h{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;color:var(--fg-2)}
@@ -451,7 +469,7 @@ const IC={
 const ico=(n,w=2)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 
 /* ---------- estado ---------- */
-const DEF_TYPES={plantao:{n:'Plantão',c:'#e5484d'},estudo:{n:'Estudo',c:'#3b82f6'},academia:{n:'Academia',c:'#f08c2e'},yoga:{n:'Yoga',c:'#30a46c'},pessoal:{n:'Pessoal',c:'#8e4ec6'}};
+const DEF_TYPES={plantao:{n:'Plantão',c:'#e5484d'},estudo:{n:'Estudo',c:'#3b82f6'},academia:{n:'Academia',c:'#f08c2e'},yoga:{n:'Yoga',c:'#30a46c'},pessoal:{n:'Pessoal',c:'#8e4ec6'},lembrete:{n:'Lembrete',c:'#c99a06'}};
 // Treinos alternam por semana ímpar/par do calendário (numeração ISO, semana começa na segunda).
 const SEED_SERIES=[
  {id:'wA1',title:'Academia',type:'academia',time:'18:30',start:'2026-10-05',rule:'odd',skip:[],done:[]},
@@ -612,7 +630,7 @@ function itemsOn(ds){
  out.sort((a,b)=>(a.time||'00:00').localeCompare(b.time||'00:00'));
  return memo['i'+ds]=out;
 }
-const countsLoad=it=>it.type!=='plantao'&&it.type!=='academia'&&it.type!=='yoga';
+const countsLoad=it=>it.type!=='plantao'&&it.type!=='academia'&&it.type!=='yoga'&&it.type!=='lembrete';
 const load=ds=>itemsOn(ds).filter(countsLoad).length;
 const studiesOn=ds=>itemsOn(ds).filter(i=>i.type==='estudo').length;
 const longShiftOn=ds=>S.shifts.some(s=>s.date===ds&&shiftHours(s)>=10);
@@ -894,6 +912,8 @@ function cNotices(){
    if(diffD(closeDate(lastClosed),t)<=4&&!cardInfo(lastClosed).fin)parts.push(`<div class="notice"><div class="alert"><i></i><span>A fatura de ${MOL[+lastClosed.slice(5)-1]} fechou em ${dLabel(closeDate(lastClosed))}. Quanto ficou?</span></div><div class="btns"><button class="btn sm" data-a="cardOpen" data-final="1" data-cyc="${lastClosed}">Registrar valor final</button></div></div>`);
    else if(day<=3&&!S.card.entries.some(e=>ym(e.date)===ym(t)))parts.push(`<div class="notice"><div class="alert"><i></i><span>Início do mês: quanto está a fatura que fecha em ${dLabel(closeDate(cyc))}?</span></div><div class="btns"><button class="btn sm" data-a="cardOpen">Atualizar fatura</button></div></div>`);}
  }
+ {const rs=S.tasks.filter(x=>x.type==='lembrete'&&!x.done&&x.date<=t).sort((a,b)=>(a.date+a.time).localeCompare(b.date+b.time));
+  for(const r of rs)parts.push(`<div class="notice"><div class="alert"><i style="background:${T('lembrete').c}"></i><span><b>${h(r.title)}</b>${r.time?' · '+hm(r.time):''}${r.date<t?` <span class="pill warn">desde ${dLabel(r.date)}</span>`:''}</span></div><div class="btns"><button class="btn sm pri" data-a="remDone" data-id="${r.id}">Feito</button><button class="btn sm" data-a="remTomorrow" data-id="${r.id}">Amanhã</button></div></div>`)}
  {const im=invAskMonth();if(im)parts.push(`<div class="notice"><p>Dia de receber: você investiu os <b>${brl0(S.card.investT)}</b> de ${MOL[+im.slice(5)-1]}?</p><div class="btns"><button class="btn sm pri" data-a="invYes" data-m="${im}">Sim, investi</button><button class="btn sm" data-a="invOther" data-m="${im}">Outro valor</button><button class="btn sm" data-a="invNo" data-m="${im}">Não investi</button></div></div>`)}
  const tm=addD(t,1);const capT=capacity(tm),ldT=load(tm);
  if(longShiftOn(tm))parts.push(`<div class="notice"><div class="alert"><i></i><span>Amanhã tem plantão longo: nada de tarefas extras.</span></div></div>`);
@@ -1015,7 +1035,8 @@ const QMO={janeiro:1,jan:1,fevereiro:2,fev:2,'março':3,marco:3,mar:3,abril:4,ab
 const qhm=(a,b)=>{a=+a;b=+(b||0);return a<24&&b<60?`${pad(a)}:${pad(b)}`:''};
 function qDate(y,m,d){const t=today();let yy=y?(+y<100?2000+ +y:+y):+t.slice(0,4);let ds=`${yy}-${pad(m)}-${pad(d)}`;if(!y&&ds<t)ds=`${yy+1}-${pad(m)}-${pad(d)}`;const x=P(ds);return x.getDate()===+d&&x.getMonth()+1===+m?ds:null}
 function parseQuick(raw){
- let s=' '+String(raw).replace(/\s+/g,' ').trim()+' ';const t=today();let date=null,time='',end='',guess=false;
+ let s=' '+String(raw).replace(/\s+/g,' ').trim()+' ';const t=today();let date=null,time='',end='',guess=false,remind=false;
+ {const m=s.match(/^\s*(?:lembretes?\s*:?|me\s+lembr[ea]\s+(?:de\s+)?|lembrar\s+(?:de\s+)?|lembra\s+(?:de\s+)?)/i);if(m){remind=true;s=' '+s.slice(m[0].length)}}
  const cut=(re,fn)=>{const m=s.match(re);if(!m)return false;const r=fn(m);if(r===false)return false;s=s.replace(m[0],' ');return true};
  const R=x=>new RegExp(x,'i');
  // repetição: "toda quinta", "toda quinta par", "terças de semana ímpar", "a cada 2 semanas", "todo dia", "todo dia 10"
@@ -1054,7 +1075,7 @@ function parseQuick(raw){
  let title=s.replace(/\s+/g,' ').trim().replace(/^(incluir|adicionar|agendar|marcar|colocar|anotar|lembrar de|lembrar)\s+/i,'').replace(/\s+(no|na|em|para|pra|dia|às|as|de|do|da|,|-)$/i,'').replace(/^(no|na|em|para|pra|de|,|-)\s+/i,'').replace(/[,;.\s-]+$/,'').trim();
  if(!title)title='Compromisso';title=title.charAt(0).toUpperCase()+title.slice(1);
  const low=title.toLowerCase();
- const type=/\byoga\b/.test(low)?'yoga':/academia|treino|muscula|personal/.test(low)?'academia':/estud|aula|simulado|revis[aã]o|medway|quest[õo]es/.test(low)?'estudo':'pessoal';
+const type=remind?'lembrete':/\byoga\b/.test(low)?'yoga':/academia|treino|muscula|personal/.test(low)?'academia':/estud|aula|simulado|revis[aã]o|medway|quest[õo]es/.test(low)?'estudo':'pessoal';
  return {title,date,time,end,type,guess,rec};
 }
 // ocupação de um dia em minutos: plantões (inclusive o noturno que vem do dia anterior) e tudo que tem horário (sem término = 1 h)
@@ -1067,7 +1088,7 @@ function busyOn(ds,skipId){const out=[];
 function conflictsFor(ds,time,end,skipId){if(!time)return [];const a=toMin(time),b=end&&end>time?toMin(end):a+60;return busyOn(ds,skipId).filter(x=>a<x.b&&b>x.a).map(x=>x.label)}
 function quickConflicts(q){const c=conflictsFor(q.date,q.time,q.end);return c.length?`coincide com ${c.join(' e ')}`:''}
 function quickPrevHTML(txt){const ls=String(txt||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,20);
- if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>terapia toda quinta par 16h por 50 min</i> · <i>pagar aluguel todo dia 10</i>.</p>';
+ if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>terapia toda quinta par 16h por 50 min</i> · <i>pagar aluguel todo dia 10</i> · <i>lembrete amanhã ligar para Carol</i>.</p>';
  return ls.map(l=>{const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b>${q.rec!=='none'?`<span class="tiny" style="color:var(--accent);font-weight:700">↻ ${recLabel(q.rec,q.date)}</span>`:''}<span class="tiny muted">${q.rec!=='none'?'começa ':''}${dLabel(q.date)}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
 const recLabel=(r,ds)=>{const g=P(ds).getDay(),w=WDL[g],td=g===0||g===6?'Todo':'Toda';return {daily:'Todo dia',weekly:`${td} ${w}`,odd:`${td} ${w} de semana ímpar`,even:`${td} ${w} de semana par`,biweekly:`A cada 2 semanas (${w})`,monthly:`Todo dia ${P(ds).getDate()}`}[r]||''};
 let QK_RECENT=[];
@@ -1228,7 +1249,7 @@ function eChart(){
 
 /* ---------- IA ---------- */
 function fitPreview(){return FIT?`<div>${FIT.options.map((o,i)=>`<div class="opt"><b>${i===0?'Melhor opção':'Alternativa'}: ${h(dLabel(o.date))}${o.time?' às '+h(hm(o.time)):''}</b><span class="small">${h(FIT.title)} · ${h(T(FIT.type).n)}</span><span class="small muted">${h(o.reason||'')}</span><div><button class="btn sm pri" data-a="fitAdd" data-i="${i}">Adicionar este</button></div></div>`).join('')}</div>`:''}
-function fitForm(){const off=aiState==='off';return `<form data-f="aiFit"><textarea class="in" id="aiFitTxt" data-d rows="2" placeholder="Ex.: renovar CRM, umas 2 h, de preferência de manhã">${h(D.aiFitTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.fit?.busy?'disabled':''}>Sugerir encaixe</button></div></form>`}
+function fitForm(){const off=aiState==='off';return `<form data-f="aiFit"><textarea class="in" id="aiFitTxt" data-d rows="2" placeholder="Ex.: renovar CRM, umas 2 h, de manhã · ou: lembrete amanhã ligar para Carol">${h(D.aiFitTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.fit?.busy?'disabled':''}>Sugerir encaixe</button></div></form>`}
 function cFitHome(){return `<section class="card" aria-label="Encaixar uma atividade com IA"><div class="card-h"><h3>Adicionar atividade · IA</h3><button class="link" data-a="tab" data-v="agendar">Agendar direto</button></div><p class="tiny faint" style="margin:-4px 0 8px">A IA sugere o melhor dia e horário; você confirma.</p>${aiState==='off'?'<p class="empty">IA indisponível nesta visualização.</p>':fitForm()+aiOut('fit')+fitPreview()}</section>`}
 function vAI(){
  const off=aiState==='off';
@@ -1428,22 +1449,26 @@ function dayPanel(ds){
  <div class="btns"><button class="btn sm pri" data-a="newTask" data-ds="${ds}">+ Tarefa</button><button class="btn sm" data-a="newShift" data-ds="${ds}">+ Plantão</button><button class="btn sm" data-a="goWeek" data-ds="${ds}">Ver na semana</button></div>`;
 }
 function daySheet(ds){sheet(cap1(dLong(ds)),dayPanel(ds));liveSheet=()=>daySheet(ds)}
-let MV={m:ym(today()),sel:today()};
+let MV={m:ym(today()),sel:today(),view:(()=>{try{return localStorage.getItem(LS+'-mv')||'grid'}catch(e){return 'grid'}})()};
 function monthCell(ds){
  const t=today(),its=itemsOn(ds),a=availOf(ds);
- const types=[...new Set(its.map(x=>x.type))].slice(0,4);
- const lines=its.slice(0,3).map(it=>`<span style="--c:${T(it.type).c}">${it.k==='shift'?`${hm(it.o.start)} Plantão`:`${it.time?hm(it.time)+' ':''}${h(chipLabel(it))}`}</span>`).join('')+(its.length>3?`<em>+${its.length-3}</em>`:'');
- return `<button class="mv-c ${ym(ds)!==MV.m?'out':''} ${ds===t?'today':''} ${ds===MV.sel?'sel':''}" data-a="mvSel" data-ds="${ds}" aria-label="${dLong(ds)}${a?', '+a.long:''}"><span class="mv-top"><span class="mv-n">${P(ds).getDate()}</span>${a?`<span class="av ${a.cls}">${a.short}</span>`:''}</span><span class="dots">${types.map(k=>`<i style="background:${T(k).c}"></i>`).join('')}</span><span class="mv-it">${lines}</span></button>`;
+ const lab=it=>it.k==='shift'?`<i>${hm(it.o.start)}–${hm(it.o.end)} </i>Plantão`:`${it.time?`<i>${hm(it.time)} </i>`:''}${h(it.type==='estudo'?'Estudo':it.title)}`;
+ const lines=its.slice(0,4).map(it=>`<span style="--c:${T(it.type).c}${it.done&&it.k!=='shift'?';opacity:.55;text-decoration:line-through':''}">${lab(it)}</span>`).join('')+(its.length>4?`<em>+${its.length-4}</em>`:'');
+ return `<button class="mv-c ${a?'av-'+a.cls:''} ${ym(ds)!==MV.m?'out':''} ${ds===t?'today':''} ${ds===MV.sel?'sel':''}" data-a="mvSel" data-ds="${ds}" aria-label="${dLong(ds)}${a?', '+a.long:''}"><span class="mv-top"><span class="mv-n">${P(ds).getDate()}</span>${a?`<span class="av ${a.cls}">${a.short}</span>`:''}</span><span class="mv-it">${lines}</span></button>`;
 }
+function monthList(){const m=MV.m,t=today();let out='';
+ for(let ds=m+'-01';ym(ds)===m;ds=addD(ds,1)){const its=itemsOn(ds),a=availOf(ds),d=P(ds);
+  out+=`<button class="mv-row ${ds===t?'today':''}" data-a="dayOpen" data-ds="${ds}"><span class="mv-rd"><span>${WD[d.getDay()]}</span><b class="num">${d.getDate()}</b></span><span class="mv-ri">${its.length?its.map(it=>`<div><i>${it.k==='shift'?hm(it.o.start)+'–'+hm(it.o.end):it.time?hm(it.time)+(it.o.end?'–'+hm(it.o.end):''):'—'}</i><span><span class="dot" style="background:${T(it.type).c};margin-right:6px"></span>${h(it.k==='shift'?'Plantão '+kindName(it.o.kind):it.type==='estudo'?'Estudo · '+it.title:it.title)}</span></div>`).join(''):'<div><span class="faint">livre</span></div>'}${a?`<div><span class="av ${a.cls}" style="display:inline">${a.long}</span></div>`:''}</span></button>`}
+ return `<div class="mv-list">${out}</div>`}
 function monthSheet(){
  const m=MV.m,start=monday(m+'-01'),t=today();let cells='';
  let free=0,full=0,sh=0,hrs=0;
  for(let i=0;i<42;i++){const ds=addD(start,i);if(i>=35&&ym(ds)!==m)break;cells+=monthCell(ds);
   if(ym(ds)===m){const a=availOf(ds);if(a){if(a.cls==='ok')free++;else full++}for(const s of S.shifts)if(s.date===ds){sh++;hrs+=shiftHours(s)}}}
- sheet(cap1(mLabel(m)),`<div class="mv-wrap"><div class="mv-nav"><span class="small muted">${sh} plantões · ${Math.round(hrs)} h · ${free} dias com espaço${full?` · ${full} cheios ou sem espaço`:''}</span><div class="wk-nav"><button class="icon-btn" data-a="mvM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><button class="btn sm" data-a="mvM" data-v="0">Hoje</button><button class="icon-btn" data-a="mvM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
- <div class="mv">${['seg','ter','qua','qui','sex','sáb','dom'].map(w=>`<span class="wd">${w}</span>`).join('')}${cells}</div>
- <div class="legend"><span><i style="background:var(--good)"></i>+N: tarefas que ainda cabem</span><span><i style="background:var(--warn)"></i>cheio</span><span><i style="background:var(--bad)"></i>plantão longo / sem espaço</span></div></div>
- <div class="mv-day" id="mvDay"><h4>${cap1(dLong(MV.sel))}</h4>${dayPanel(MV.sel)}</div>`,true);
+ sheet(cap1(mLabel(m)),`<div class="mv-wrap"><div class="mv-nav"><div class="seg" role="group" aria-label="Visualização"><button data-a="mvView" data-v="grid" aria-pressed="${MV.view!=='list'}">Grade</button><button data-a="mvView" data-v="list" aria-pressed="${MV.view==='list'}">Lista</button></div><span class="small muted">${sh} plantões · ${Math.round(hrs)} h · ${free} dias com espaço${full?` · ${full} cheios ou sem espaço`:''}</span><div class="wk-nav"><button class="icon-btn" data-a="mvM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><button class="btn sm" data-a="mvM" data-v="0">Hoje</button><button class="icon-btn" data-a="mvM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
+ ${MV.view==='list'?monthList()+'</div>':`<div class="mv">${['seg','ter','qua','qui','sex','sáb','dom'].map(w=>`<span class="wd">${w}</span>`).join('')}${cells}</div>
+ <div class="legend"><span><i style="background:var(--good)"></i>tem espaço</span><span><i style="background:var(--warn)"></i>cheio</span><span><i style="background:var(--bad)"></i>plantão longo / sem espaço</span></div></div>
+ <div class="mv-day" id="mvDay"><h4>${cap1(dLong(MV.sel))}</h4>${dayPanel(MV.sel)}</div>`}`,true);
  liveSheet=monthSheet;
 }
 function openItem(k,id,day){
@@ -1526,6 +1551,8 @@ const ACT={
  mailTrashAll:async el=>{if(!armed(el))return;await mailTrash(promoList().map(t=>t.id))},
  mailAI:()=>{const imp=mailGroups().imp.slice(0,30).map(t=>`- ${mailWhen(t.date)} | ${senderName(t.sender)} <${senderKey(t.sender)}> | ${t.subject} | ${t.snippet.slice(0,220)}${t.unread?' | NÃO LIDO':''}`).join('\n');
   aiText('mail',`${PERSONA}\n\nHoje é ${dLong(today())}. Estes são os e-mails que o app classificou como importantes na caixa de entrada dela (data | remetente | assunto | trecho):\n${imp||'(nenhum)'}\n\nTAREFA: diga em até 150 palavras o que realmente pede ação dela, em ordem de urgência, com prazo quando houver (ex.: inscrição, nota fiscal, pagamento, prova, mudança de regra profissional). Depois, em uma linha, o que pode ser ignorado. Formato: lista curta com "o quê → o que fazer". Não invente prazos que não estão nos trechos.`)},
+ remDone:el=>{const r=findTask(el.dataset.id);if(r){r.done=true;r.doneAt=Date.now();save('tasks')}},
+ remTomorrow:el=>{const r=findTask(el.dataset.id);if(r){r.date=addD(today(),1);save('tasks');toast('Lembrete para amanhã.')}},
  quickUndo:el=>{const id=el.dataset.id;if(el.dataset.k==='ser'){S.series=S.series.filter(x=>x.id!==id);save('series')}else{S.tasks=S.tasks.filter(x=>x.id!==id);save('tasks')}QK_RECENT=QK_RECENT.filter(x=>x.id!==id);render();toast('Desfeito.')},
  quickTab:()=>{closeSheet();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
@@ -1536,9 +1563,10 @@ const ACT={
  newExp:()=>sheet('Gasto supérfluo',`<form class="sh-b" data-f="expSheet"><label class="field"><span>Nome</span><input class="in" id="esName" required placeholder="Ex.: café"></label><div class="grid2"><label class="field"><span>Valor (R$)</span><input class="in" id="esV" inputmode="decimal" required placeholder="0,00"></label><label class="field"><span>Data</span><input class="in" type="date" id="esDate" value="${today()}" required></label></div><div class="btns"><button class="btn pri">Adicionar</button></div></form>`),
  wk:el=>{const v=+el.dataset.v;wk=v===0?monday(today()):addD(wk,7*v);calM=ym(addD(wk,3));render()},
  calM:el=>{calM=addM(calM,+el.dataset.v);render()},
- calDay:el=>{MV={m:ym(el.dataset.ds),sel:el.dataset.ds};monthSheet()},
- monthOpen:()=>{const t=today();MV={m:calM,sel:ym(t)===calM?t:calM+'-01'};monthSheet()},
+ calDay:el=>{MV={...MV,m:ym(el.dataset.ds),sel:el.dataset.ds};monthSheet()},
+ monthOpen:()=>{const t=today();MV={...MV,m:calM,sel:ym(t)===calM?t:calM+'-01'};monthSheet()},
  dayOpen:el=>daySheet(el.dataset.ds),
+ mvView:el=>{MV.view=el.dataset.v;try{localStorage.setItem(LS+'-mv',MV.view)}catch(e){}monthSheet();if(MV.view==='list')setTimeout(()=>document.querySelector('.mv-row.today')?.scrollIntoView({block:'start'}),30)},
  mvM:el=>{const v=+el.dataset.v,t=today();MV.m=v===0?ym(t):addM(MV.m,v);MV.sel=ym(t)===MV.m?t:MV.m+'-01';monthSheet()},
  mvSel:el=>{MV.sel=el.dataset.ds;document.querySelectorAll('.mv-c.sel').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');const d=$('#mvDay');if(d){d.innerHTML=`<h4>${cap1(dLong(MV.sel))}</h4>${dayPanel(MV.sel)}`;if(!matchMedia('(min-width:760px)').matches)d.scrollIntoView({block:'start',behavior:'smooth'})}},
  goWeek:el=>{const ds=el.dataset.ds;wk=monday(ds);calM=ym(ds);tab='semana';closeSheet();render();window.scrollTo(0,0)},
@@ -1670,7 +1698,9 @@ const FORMS={
  rates:f=>{const a=parseBRL($('#rtT').value),b=parseBRL($('#rtP').value);if(!(a>0)||!(b>0)){toast('Valores inválidos.');return}S.settings.rates={tutora:a,porta:b};save('settings');toast('Valores salvos.');settingsSheet()},
  aiQ:()=>{const q=(D.aiQTxt||'').trim();if(!q)return;aiText('q',`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nPERGUNTA DELA: ${q}\n\nResponda de forma objetiva usando os dados acima (energia, plantões, capacidade, dinheiro). Se faltar informação, diga qual. Até 180 palavras.`)},
  aiFit:async()=>{
-  const q=(D.aiFitTxt||'').trim();if(!q||!sampleFn)return;
+  const q=(D.aiFitTxt||'').trim();if(!q)return;
+  if(/^\s*(lembretes?|me\s+lembr|lembrar|lembra\s)/i.test(q)){const p=parseQuick(q);S.tasks.push({id:nid(),title:p.title,type:'lembrete',date:p.date,time:p.time,end:'',fixed:true,done:false,created:Date.now()});D.aiFitTxt='';save('tasks');toast(`Lembrete: ${p.title} → ${dLabel(p.date)}${p.time?' '+hm(p.time):''}`);return}
+  if(!sampleFn)return;
   const ctl=new AbortController();AI.fit={busy:true,text:'',err:'',ctl};FIT=null;render();
   try{
    const r=await sampleFn.json(`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nPEDIDO: encaixar esta atividade: "${q}".\nRegras: só datas dos próximos 14 dias a partir de hoje; nunca em dia de plantão de 10 h ou mais; prefira dia com capacidade livre (capacidade maior que carga) e energia prevista alta; evite a manhã seguinte a plantão noturno; não sobreponha horários de treino ou plantão.\nResponda só com JSON neste formato: {"title":"nome curto da atividade","type":"pessoal|estudo|academia|yoga","options":[{"date":"AAAA-MM-DD","time":"HH:MM ou vazio","reason":"motivo em 1-2 frases"}]} com exatamente 2 opções, a melhor primeiro.`,{signal:ctl.signal});
