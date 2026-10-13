@@ -745,8 +745,8 @@ function reschedule(){
 /* ---------- plantões fixos (semanas ímpares/pares) ---------- */
 // regras antigas (A/B quinzenal) são migradas: refaz os plantões futuros pela paridade do calendário
 function regenRules(){const t=today();let ch=false;for(const r of S.rules)if(r.regen){S.shifts=S.shifts.filter(x=>!(x.rule===r.id&&x.date>t));r.upto=t;delete r.regen;ch=true}if(ch)save('rules','shifts')}
-function genShifts(){
- const hz=addD(today(),180);let ch=false;
+function genShifts(to){
+ let hz=addD(today(),400);if(to&&to>hz)hz=to;let ch=false;
  for(const r of S.rules){
   let d=r.upto?addD(r.upto,1):r.start;if(d<r.start)d=r.start;
   const off=diffD(r.start,d)%7;if(off)d=addD(d,7-off);
@@ -843,8 +843,12 @@ function renderRemote(){
  render();
  if(id){const el=document.getElementById(id);if(el&&el!==document.activeElement){el.focus();try{if(ss!=null)el.setSelectionRange(ss,se)}catch(e){}}}
 }
+// garante plantões fixos gerados até o período que está sendo visto (semana, mês, dinheiro)
+let hzBusy=false;
+function ensureHorizon(){if(hzBusy||!booted||!S.rules.length)return;const ends=[addD(wk,6),calM+'-28',MV.m+'-28',monM+'-28',addD(sumWk,6)];const far=ends.sort().pop();
+ const need=addD(far,10);if(S.rules.some(r=>!r.until&&(r.upto||'')<need)){hzBusy=true;try{genShifts(addD(far,45))}finally{hzBusy=false}}}
 function render(){
- memo={};applyTheme();
+ memo={};applyTheme();ensureHorizon();memo={};
  $('#todayLbl').textContent=dLong(today());
  $('#tabsTop').innerHTML=navHTML();$('#tabsBot').innerHTML=navHTML();
  const v=$('#view');
