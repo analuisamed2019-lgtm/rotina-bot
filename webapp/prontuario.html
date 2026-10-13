@@ -99,6 +99,7 @@ main{max-width:1440px;margin:0 auto;padding-block:14px 8px;padding-inline:16px}
 /* Buttons & inputs */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);font-weight:600;font-size:14px;white-space:nowrap}
 .btn:hover{background:var(--surface-2)}
+a.btn{text-decoration:none;color:var(--fg)}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .btn.pri:hover{filter:brightness(1.08)}
 .btn.sm{height:30px;padding:0 10px;font-size:13px;border-radius:8px}
@@ -589,6 +590,7 @@ function afterLoad(){
  if(mode==='local')KEYS.forEach(k=>loaded[k]=true);
  regenRules();if(needMig){needMig=false;save('series','rules','shifts')}
  genShifts();reschedule();render();
+ gcStart();
 }
 
 /* ---------- IA (sample) ---------- */
@@ -598,6 +600,32 @@ async function claudeUse(c){
  aiState=sampleFn?'on':'off';
  if(sampleFn){try{const l=await sampleFn.limits();aiImages=!!(l&&l.images)}catch(e){aiImages=false}}
  if(tab==='ia')render();
+}
+
+/* ---------- Google Agenda (ao vivo, só leitura): agenda da Medway + agenda principal ---------- */
+const GCS='Google Calendar';
+const GC={byDay:{},state:'idle',err:'',medId:null,at:0,started:false};
+function gcParse(res,med){let p=res&&res.payload;if(!p&&res&&res.content){try{p=JSON.parse((res.content.find(c=>c.type==='text')||{}).text||'{}')}catch(e){p={}}}
+ const out=[];for(const e of (p&&p.events)||[]){if(e.status==='cancelled')continue;let date,time='',end='';
+  if(e.start&&e.start.dateTime){/* horário local do próprio evento (agenda em America/Sao_Paulo) */const A=String(e.start.dateTime),B=String(e.end&&e.end.dateTime||A);date=A.slice(0,10);time=A.slice(11,16);end=B.slice(0,10)===date?B.slice(11,16):'23:59'}
+  else if(e.start&&e.start.date)date=e.start.date;else continue;
+  out.push({id:e.id,date,time,end,title:String(e.summary||'(sem título)').replace(/\s*-\s*CM_\d+$/,''),link:e.htmlLink||'',med})}
+ return out}
+let gcMed=[],gcOwn=[];
+function gcRebuild(){const by={};for(const e of gcMed)(by[e.date]=by[e.date]||{med:[],own:[]}).med.push(e);for(const e of gcOwn)(by[e.date]=by[e.date]||{med:[],own:[]}).own.push(e);
+ for(const k in by){by[k].med.sort((a,b)=>a.time.localeCompare(b.time));by[k].own.sort((a,b)=>a.time.localeCompare(b.time))}GC.byDay=by;GC.at=Date.now();memo={};renderRemote()}
+async function gcStart(){
+ if(GC.started)return;GC.started=true;let m=null;
+ try{m=await window.claude?.use?.('mcp')}catch(e){}
+ if(!m){GC.state='off';return}
+ mcp=mcp||m;GC.state='loading';
+ try{const r=await m.callTool(GCS,'list_calendars',{},{cache:{staleTime:300000,gcTime:86400000}});let p=r.payload;if(!p&&r.content){try{p=JSON.parse(r.content[0].text)}catch(e){}}
+  const c=((p&&p.calendars)||[]).find(c=>/medway/i.test(c.summary||''));GC.medId=c?c.id:null}
+ catch(e){GC.state='err';GC.err=e&&e.code==='server_not_connected'?'Google Agenda não conectado ao Claude.':'Não consegui ler o Google Agenda.';renderRemote();return}
+ const t=today(),win={startTime:addD(t,-14)+'T00:00:00',endTime:addD(t,60)+'T00:00:00',orderBy:'startTime',pageSize:250};
+ const opt={cache:{staleTime:120000,gcTime:86400000},refetchInterval:900000};
+ if(GC.medId)m.watchTool(GCS,'list_events',{...win,calendarId:GC.medId},ev=>{if(ev.type==='data'){gcMed=gcParse(ev.result,true);GC.state='ok';gcRebuild()}},opt);
+ m.watchTool(GCS,'list_events',{...win},ev=>{if(ev.type==='data'){gcOwn=gcParse(ev.result,false);GC.state='ok';gcRebuild()}},opt);
 }
 
 /* ---------- domínio: agenda ---------- */
@@ -627,6 +655,10 @@ function itemsOn(ds){
  for(const s of S.shifts)if(s.date===ds)out.push({k:'shift',id:s.id,type:'plantao',time:s.start,title:'Plantão '+kindName(s.kind),done:shiftDone(s),o:s});
  for(const t of S.tasks)if(t.date===ds)out.push({k:'task',id:t.id,type:t.type,time:t.time||'',title:t.title,done:!!t.done,o:t});
  for(const r of S.series)if(occurs(r,ds))out.push({k:'ser',id:r.id,type:r.type,time:r.time||'',title:r.title,done:(r.done||[]).includes(ds),o:r});
+ const gd=GC.byDay[ds];
+ if(gd){const gdone=S.settings.gdone||[];
+  if(gd.med.length){const ev=gd.med;out.push({k:'gcal',id:'gm-'+ds,type:'estudo',time:ev[0].time,title:'Medway: '+ev.map(e=>e.title).join('; '),done:ev.every(e=>gdone.includes(e.id)),o:{end:ev.reduce((m,e)=>e.end>m?e.end:m,''),evs:ev,med:true}})}
+  for(const e of gd.own)out.push({k:'gcal',id:e.id,type:'pessoal',time:e.time,title:e.title,done:gdone.includes(e.id),o:{end:e.end,evs:[e]}});}
  out.sort((a,b)=>(a.time||'00:00').localeCompare(b.time||'00:00'));
  return memo['i'+ds]=out;
 }
@@ -1082,7 +1114,8 @@ const type=remind?'lembrete':/\byoga\b/.test(low)?'yoga':/academia|treino|muscul
 function busyOn(ds,skipId){const out=[];
  for(const x of S.shifts){if(x.date===ds){let a=toMin(x.start),b=toMin(x.end);if(b<=a)b+=1440;out.push({a,b,label:`plantão ${hm(x.start)}–${hm(x.end)}`})}
   else if(x.date===addD(ds,-1)&&shiftCross(x))out.push({a:0,b:toMin(x.end),label:`plantão noturno até ${hm(x.end)}`})}
- for(const it of itemsOn(ds)){if(it.k==='shift'||!it.time||it.id===skipId)continue;const a=toMin(it.time),e=it.o.end&&it.o.end>it.time?toMin(it.o.end):a+60;
+ for(const it of itemsOn(ds)){if(it.k==='gcal'){for(const e of it.o.evs)if(e.time)out.push({a:toMin(e.time),b:e.end&&e.end>e.time?toMin(e.end):toMin(e.time)+60,label:`${it.o.med?'Medway – ':''}${e.title} ${hm(e.time)}${e.end?'–'+hm(e.end):''}`});continue}
+  if(it.k==='shift'||!it.time||it.id===skipId)continue;const a=toMin(it.time),e=it.o.end&&it.o.end>it.time?toMin(it.o.end):a+60;
   out.push({a,b:e,label:`${it.type==='estudo'?'Estudo':it.title} ${hm(it.time)}${it.o.end?'–'+hm(it.o.end):''}`})}
  return out}
 function conflictsFor(ds,time,end,skipId){if(!time)return [];const a=toMin(time),b=end&&end>time?toMin(end):a+60;return busyOn(ds,skipId).filter(x=>a<x.b&&b>x.a).map(x=>x.label)}
@@ -1472,6 +1505,12 @@ function monthSheet(){
  liveSheet=monthSheet;
 }
 function openItem(k,id,day){
+ if(k==='gcal'){const it=itemsOn(day).find(x=>x.id===id);if(!it)return;const gdone=S.settings.gdone||[];
+  sheet(it.o.med?'Estudo · Medway':'Google Agenda',`<div class="det"><span class="small muted">${cap1(dLong(day))}</span></div>
+  <ul class="lst">${it.o.evs.map(e=>`<li><span class="tm" style="width:86px;font-weight:700;font-size:13px;color:var(--fg-2)">${e.time?hm(e.time)+(e.end?'–'+hm(e.end):''):'dia todo'}</span><span class="grow"><b>${h(e.title)}</b></span><button class="btn sm ${gdone.includes(e.id)?'pri':''}" data-a="gcDone" data-id="${h(e.id)}" data-day="${day}">${gdone.includes(e.id)?'Feito':'Concluir'}</button></li>`).join('')}</ul>
+  <div class="btns">${it.o.med?'<a class="btn" href="https://app.medway.com.br/dashboard/my-week" target="_blank" rel="noopener">Abrir na Medway</a>':''}${it.o.evs[0].link?`<a class="btn" href="${h(it.o.evs[0].link)}" target="_blank" rel="noopener">Abrir no Google Agenda</a>`:''}</div>
+  <p class="tiny faint" style="margin:0">${it.o.med?'Vem da Agenda Inteligente Medway. Para remarcar, use a plataforma Medway; o app atualiza sozinho.':'Vem do seu Google Agenda. Para editar, use o Google Agenda.'} "Concluir" fica salvo só aqui no app.</p>`);
+  liveSheet=()=>openItem(k,id,day);return}
  if(k==='shift'){const s=S.shifts.find(x=>x.id===id);if(s)shiftForm(s);return}
  if(k==='task'){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
@@ -1553,6 +1592,7 @@ const ACT={
   aiText('mail',`${PERSONA}\n\nHoje é ${dLong(today())}. Estes são os e-mails que o app classificou como importantes na caixa de entrada dela (data | remetente | assunto | trecho):\n${imp||'(nenhum)'}\n\nTAREFA: diga em até 150 palavras o que realmente pede ação dela, em ordem de urgência, com prazo quando houver (ex.: inscrição, nota fiscal, pagamento, prova, mudança de regra profissional). Depois, em uma linha, o que pode ser ignorado. Formato: lista curta com "o quê → o que fazer". Não invente prazos que não estão nos trechos.`)},
  remDone:el=>{const r=findTask(el.dataset.id);if(r){r.done=true;r.doneAt=Date.now();save('tasks')}},
  remTomorrow:el=>{const r=findTask(el.dataset.id);if(r){r.date=addD(today(),1);save('tasks');toast('Lembrete para amanhã.')}},
+ gcDone:el=>{const g=new Set(S.settings.gdone||[]);const id=el.dataset.id;g.has(id)?g.delete(id):g.add(id);S.settings.gdone=[...g].slice(-600);save('settings')},
  quickUndo:el=>{const id=el.dataset.id;if(el.dataset.k==='ser'){S.series=S.series.filter(x=>x.id!==id);save('series')}else{S.tasks=S.tasks.filter(x=>x.id!==id);save('tasks')}QK_RECENT=QK_RECENT.filter(x=>x.id!==id);render();toast('Desfeito.')},
  quickTab:()=>{closeSheet();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
@@ -1578,7 +1618,8 @@ const ACT={
  open:el=>openItem(el.dataset.k,el.dataset.id,el.dataset.day),
  toggle:el=>{
   const {k,id,day}=el.dataset;
-  if(k==='task'){const t=findTask(id);if(!t)return;t.done=!t.done;t.doneAt=t.done?Date.now():null;save('tasks')}
+  if(k==='gcal'){const it=itemsOn(day).find(x=>x.id===id);if(!it)return;const g=new Set(S.settings.gdone||[]);const ids=it.o.evs.map(e=>e.id);const all=ids.every(x=>g.has(x));ids.forEach(x=>all?g.delete(x):g.add(x));S.settings.gdone=[...g].slice(-600);save('settings')}
+  else if(k==='task'){const t=findTask(id);if(!t)return;t.done=!t.done;t.doneAt=t.done?Date.now():null;save('tasks')}
   else if(k==='ser'){const r=S.series.find(x=>x.id===id);if(!r)return;r.done=r.done||[];const i=r.done.indexOf(day);if(i>=0)r.done.splice(i,1);else r.done.push(day);
    r.done=r.done.filter(d=>diffD(d,today())<400);save('series')}
   if(el.dataset.close)closeSheet();
