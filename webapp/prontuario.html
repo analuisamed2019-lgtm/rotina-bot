@@ -849,7 +849,7 @@ function render(){
  const v=$('#view');
  if(tab==='email')mailStart();
  v.innerHTML=({semana:vHome,resumo:vResumo,dinheiro:vMoney,energia:vEnergy,email:vMail,agendar:vQuick,ia:vAI}[tab]||vHome)();
- if(liveSheet&&!$('#sheet').hidden){const sh=$('#sheet .sh');const y=sh?sh.scrollTop:0;const f=liveSheet;f();liveSheet=f;const n=$('#sheet .sh');if(n)n.scrollTop=y}
+ if(liveSheet&&!$('#sheet').hidden){const sh=$('#sheet .sh');const y=sh?sh.scrollTop:0;const f=liveSheet;sheetRefreshing=true;try{f()}finally{sheetRefreshing=false}liveSheet=f;const n=$('#sheet .sh');if(n)n.scrollTop=y}
 }
 
 /* ---------- Semana (tela inicial) ---------- */
@@ -1414,13 +1414,18 @@ async function exportICS(){
 
 /* ---------- folhas (sheets) ---------- */
 let sheetOpener=null;
-let liveSheet=null;
-function sheet(title,body,wide){
- const el=$('#sheet');liveSheet=null;if(!el.contains(document.activeElement))sheetOpener=document.activeElement;
- el.innerHTML=`<div class="sh-bg" data-a="closeSheet"></div><div class="sh${wide?' wide':''}" role="dialog" aria-modal="true" aria-label="${h(title)}"><div class="sh-h"><h3>${h(title)}</h3><button class="icon-btn" data-a="closeSheet" aria-label="Fechar">✕</button></div><div class="sh-b">${body}</div></div>`;
+// pilha de folhas: abrir algo a partir do mês/dia guarda o anterior; "‹" e salvar/cancelar voltam, ✕ fecha tudo
+let liveSheet=null,sheetStack=[],curKind=null,sheetRefreshing=false;
+function sheet(title,body,wide,kind,head){
+ const el=$('#sheet');
+ if(el.hidden){sheetStack=[];if(!el.contains(document.activeElement))sheetOpener=document.activeElement}
+ else if(!sheetRefreshing&&liveSheet&&(kind||null)!==curKind)sheetStack.push(liveSheet);
+ liveSheet=null;curKind=kind||null;
+ el.innerHTML=`<div class="sh-bg" data-a="closeAll"></div><div class="sh${wide?' wide':''}" role="dialog" aria-modal="true" aria-label="${h(title)}"><div class="sh-h">${sheetStack.length?'<button class="icon-btn" data-a="closeSheet" aria-label="Voltar">'+ico('l')+'</button>':''}<h3 style="flex:1">${h(title)}</h3>${head||''}<button class="icon-btn" data-a="closeAll" aria-label="Fechar">✕</button></div><div class="sh-b">${body}</div></div>`;
  el.hidden=false;const f=el.querySelector('input:not([type=hidden]):not([type=checkbox]),textarea,select');if(f&&!f.readOnly&&matchMedia('(min-width:760px)').matches)f.focus();
 }
-function closeSheet(){liveSheet=null;$('#sheet').hidden=true;$('#sheet').innerHTML='';try{sheetOpener?.focus?.()}catch(e){}}
+function closeSheet(){const b=sheetStack.pop();if(b&&!$('#sheet').hidden){liveSheet=null;curKind='__back';b();return}closeAll()}
+function closeAll(){sheetStack=[];curKind=null;liveSheet=null;$('#sheet').hidden=true;$('#sheet').innerHTML='';try{sheetOpener?.focus?.()}catch(e){}}
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200)}
 const typeOpts=(sel,noShift=true)=>Object.keys(S.settings.types).filter(k=>!noShift||k!=='plantao').map(k=>`<option value="${k}" ${k===sel?'selected':''}>${h(T(k).n)}</option>`).join('');
 function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoal',title:t0=''}){
@@ -1481,7 +1486,7 @@ function dayPanel(ds){
  ${its.length?`<ul class="lst tl">${rows}</ul>`:'<p class="empty">Dia livre, nada agendado.</p>'}
  <div class="btns"><button class="btn sm pri" data-a="newTask" data-ds="${ds}">+ Tarefa</button><button class="btn sm" data-a="newShift" data-ds="${ds}">+ Plantão</button><button class="btn sm" data-a="goWeek" data-ds="${ds}">Ver na semana</button></div>`;
 }
-function daySheet(ds){sheet(cap1(dLong(ds)),dayPanel(ds));liveSheet=()=>daySheet(ds)}
+function daySheet(ds){MV.sel=ds;sheet(cap1(dLong(ds)),dayPanel(ds),true,'day',`<button class="icon-btn" data-a="dayNav" data-ds="${addD(ds,-1)}" aria-label="Dia anterior">${ico('l')}</button><button class="icon-btn" data-a="dayNav" data-ds="${addD(ds,1)}" aria-label="Próximo dia">${ico('r')}</button>`);liveSheet=()=>daySheet(ds)}
 let MV={m:ym(today()),sel:today(),view:(()=>{try{return localStorage.getItem(LS+'-mv')||'grid'}catch(e){return 'grid'}})()};
 function monthCell(ds){
  const t=today(),its=itemsOn(ds),a=availOf(ds);
@@ -1501,7 +1506,7 @@ function monthSheet(){
  sheet(cap1(mLabel(m)),`<div class="mv-wrap"><div class="mv-nav"><div class="seg" role="group" aria-label="Visualização"><button data-a="mvView" data-v="grid" aria-pressed="${MV.view!=='list'}">Grade</button><button data-a="mvView" data-v="list" aria-pressed="${MV.view==='list'}">Lista</button></div><span class="small muted">${sh} plantões · ${Math.round(hrs)} h · ${free} dias com espaço${full?` · ${full} cheios ou sem espaço`:''}</span><div class="wk-nav"><button class="icon-btn" data-a="mvM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><button class="btn sm" data-a="mvM" data-v="0">Hoje</button><button class="icon-btn" data-a="mvM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
  ${MV.view==='list'?monthList()+'</div>':`<div class="mv">${['seg','ter','qua','qui','sex','sáb','dom'].map(w=>`<span class="wd">${w}</span>`).join('')}${cells}</div>
  <div class="legend"><span><i style="background:var(--good)"></i>tem espaço</span><span><i style="background:var(--warn)"></i>cheio</span><span><i style="background:var(--bad)"></i>plantão longo / sem espaço</span></div></div>
- <div class="mv-day" id="mvDay"><h4>${cap1(dLong(MV.sel))}</h4>${dayPanel(MV.sel)}</div>`}`,true);
+ <p class="tiny faint" style="margin:8px 0 0">Toque num dia para abrir, adicionar ou mudar eventos.</p>`}`,true,'month');
  liveSheet=monthSheet;
 }
 function openItem(k,id,day){
@@ -1510,7 +1515,7 @@ function openItem(k,id,day){
   <ul class="lst">${it.o.evs.map(e=>`<li><span class="tm" style="width:86px;font-weight:700;font-size:13px;color:var(--fg-2)">${e.time?hm(e.time)+(e.end?'–'+hm(e.end):''):'dia todo'}</span><span class="grow"><b>${h(e.title)}</b></span><button class="btn sm ${gdone.includes(e.id)?'pri':''}" data-a="gcDone" data-id="${h(e.id)}" data-day="${day}">${gdone.includes(e.id)?'Feito':'Concluir'}</button></li>`).join('')}</ul>
   <div class="btns">${it.o.med?'<a class="btn" href="https://app.medway.com.br/dashboard/my-week" target="_blank" rel="noopener">Abrir na Medway</a>':''}${it.o.evs[0].link?`<a class="btn" href="${h(it.o.evs[0].link)}" target="_blank" rel="noopener">Abrir no Google Agenda</a>`:''}</div>
   <p class="tiny faint" style="margin:0">${it.o.med?'Vem da Agenda Inteligente Medway. Para remarcar, use a plataforma Medway; o app atualiza sozinho.':'Vem do seu Google Agenda. Para editar, use o Google Agenda.'} "Concluir" fica salvo só aqui no app.</p>`);
-  liveSheet=()=>openItem(k,id,day);return}
+  curKind='gcal';liveSheet=()=>openItem(k,id,day);return}
  if(k==='shift'){const s=S.shifts.find(x=>x.id===id);if(s)shiftForm(s);return}
  if(k==='task'){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
@@ -1594,7 +1599,7 @@ const ACT={
  remTomorrow:el=>{const r=findTask(el.dataset.id);if(r){r.date=addD(today(),1);save('tasks');toast('Lembrete para amanhã.')}},
  gcDone:el=>{const g=new Set(S.settings.gdone||[]);const id=el.dataset.id;g.has(id)?g.delete(id):g.add(id);S.settings.gdone=[...g].slice(-600);save('settings')},
  quickUndo:el=>{const id=el.dataset.id;if(el.dataset.k==='ser'){S.series=S.series.filter(x=>x.id!==id);save('series')}else{S.tasks=S.tasks.filter(x=>x.id!==id);save('tasks')}QK_RECENT=QK_RECENT.filter(x=>x.id!==id);render();toast('Desfeito.')},
- quickTab:()=>{closeSheet();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
+ quickTab:()=>{closeAll();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
  cardDel:el=>{if(!armed(el))return;S.card.entries=S.card.entries.filter(e=>e.id!==el.dataset.id);save('card')},
  cardMeta:el=>{const cyc=el.dataset.cyc,b=cardBudget(cyc);sheet('Meta da fatura',`<div class="sh-sec"><p class="small muted" style="margin:0">A meta muda sozinha a cada mês: é o que sobra da renda depois dos fixos e do investimento.</p>
@@ -1608,8 +1613,10 @@ const ACT={
  dayOpen:el=>daySheet(el.dataset.ds),
  mvView:el=>{MV.view=el.dataset.v;try{localStorage.setItem(LS+'-mv',MV.view)}catch(e){}monthSheet();if(MV.view==='list')setTimeout(()=>document.querySelector('.mv-row.today')?.scrollIntoView({block:'start'}),30)},
  mvM:el=>{const v=+el.dataset.v,t=today();MV.m=v===0?ym(t):addM(MV.m,v);MV.sel=ym(t)===MV.m?t:MV.m+'-01';monthSheet()},
- mvSel:el=>{MV.sel=el.dataset.ds;document.querySelectorAll('.mv-c.sel').forEach(b=>b.classList.remove('sel'));el.classList.add('sel');const d=$('#mvDay');if(d){d.innerHTML=`<h4>${cap1(dLong(MV.sel))}</h4>${dayPanel(MV.sel)}`;if(!matchMedia('(min-width:760px)').matches)d.scrollIntoView({block:'start',behavior:'smooth'})}},
- goWeek:el=>{const ds=el.dataset.ds;wk=monday(ds);calM=ym(ds);tab='semana';closeSheet();render();window.scrollTo(0,0)},
+ mvSel:el=>daySheet(el.dataset.ds),
+ dayNav:el=>daySheet(el.dataset.ds),
+ closeAll:()=>closeAll(),
+ goWeek:el=>{const ds=el.dataset.ds;wk=monday(ds);calM=ym(ds);tab='semana';closeAll();render();window.scrollTo(0,0)},
  editRule:el=>{const r=S.rules.find(x=>x.id===el.dataset.id);if(r)ruleForm(r)},
  newRule:()=>ruleForm(null),
  endRule:el=>{if(!armed(el))return;dropFutureRule(el.dataset.id);S.rules=S.rules.filter(x=>x.id!==el.dataset.id);save('rules','shifts');settingsSheet();toast('Plantão fixo encerrado. Os passados ficaram.')},
