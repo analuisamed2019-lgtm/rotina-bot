@@ -856,8 +856,8 @@ function render(){
 /* ---------- Semana (tela inicial) ---------- */
 function vHome(){
  const notes=cNotes(),week=cWeek(),cal=cCal(),en=cEnergy(),av=cNotices(),st=cStudies(),mo=cMoneyMini();
- if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cal}${st}</div><div class="stack">${week}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
- return `<div class="home">${notes}${cFitHome()}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${st}${mo}</div></div>`;
+ if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${st}</div><div class="stack">${week}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
+ return `<div class="home">${notes}${cFitHome()}${cCmdHome()}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${st}${mo}</div></div>`;
 }
 function sortedNotes(){return [...S.notes].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.upd-a.upd)}
 function noteTime(ts){const d=new Date(ts);return `${d.getDate()} ${MO[d.getMonth()]}, ${pad(d.getHours())}:${pad(d.getMinutes())}`}
@@ -1347,6 +1347,8 @@ function cmdApply(o){
   case 'skip_day':{const r=S.series.find(x=>x.id===o.id);r.skip=[...(r.skip||[]),o.date];break}
   case 'set_rate':S.settings.rates[o.kind]=+o.value12h;break;
  }}
+function cmdForm(){const off=aiState==='off';return `<form data-f="aiCmd"><textarea class="in" id="aiCmdTxt" data-d rows="3" placeholder="Ex.: a partir de novembro só farei plantão de tutora toda sexta e sábado; não farei mais plantão de porta.">${h(D.aiCmdTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.cmd?.busy?'disabled':''}>Montar mudanças</button></div></form>`}
+function cCmdHome(){return `<section class="card" aria-label="Assistente da agenda"><div class="card-h"><h3>Assistente · mudar a agenda</h3><button class="link" data-a="tab" data-v="ia">Mais IA</button></div><p class="tiny faint" style="margin:-4px 0 8px">Peça mudanças maiores na rotina. Você confere antes de aplicar.</p>${aiState==='off'?'<p class="empty">IA indisponível nesta visualização.</p>':cmdForm()+aiOut('cmd')+cmdPreview()}</section>`}
 function cmdPreview(){if(!CMD)return '';
  return `<div style="margin-top:12px">${CMD.reply?`<div class="ai-out">${md(CMD.reply)}</div>`:''}
  ${CMD.ops.length?`<div class="small muted" style="margin:6px 0">${CMD.ops.length} mudança${CMD.ops.length>1?'s':''}. Desmarque o que não quiser:</div>${CMD.ops.map((o,i)=>`<label class="qk-row" style="cursor:pointer"><input type="checkbox" data-cmd="${i}" ${o.on?'checked':''}><span class="grow">${h(o.desc)}</span></label>`).join('')}
@@ -1362,7 +1364,7 @@ function vAI(){
  return `<div class="ph"><div><h1>IA</h1><div class="sub">Lê sua agenda de 14 dias, energia, tarefas e o mês financeiro</div></div></div>
  ${off?`<div class="ai-off">A IA não está disponível nesta visualização. Abra o app pelo claude.ai com sua conta para usar estes recursos.</div>`:''}
  <div class="cols">
- <div class="span2">${card('cmd','Assistente: peça mudanças na agenda','Escreva o que mudou na sua rotina. A IA monta as mudanças e você confere antes de aplicar.',`<form data-f="aiCmd"><textarea class="in" id="aiCmdTxt" data-d rows="3" placeholder="Ex.: a partir de novembro só farei plantão de tutora toda sexta e sábado; não farei mais plantão de porta.">${h(D.aiCmdTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.cmd?.busy?'disabled':''}>Montar mudanças</button></div></form>${cmdPreview()}`)}</div>
+ <div class="span2">${card('cmd','Assistente: peça mudanças na agenda','Escreva o que mudou na sua rotina. A IA monta as mudanças e você confere antes de aplicar.',cmdForm()+cmdPreview())}</div>
  ${card('week','Avaliar minha semana','Opinião sincera sobre os próximos 7 dias, com 2–3 ações concretas.',`<button class="btn pri" data-a="aiWeek" ${off||AI.week?.busy?'disabled':''}>Avaliar minha semana</button>`)}
  ${card('mot','Preciso de motivação','Mensagem curta e honesta, com um próximo passo possível hoje.',`<button class="btn pri" data-a="aiMot" ${off||AI.mot?.busy?'disabled':''}>Preciso de motivação</button>`)}
  ${card('fit','Encaixar uma atividade','Descreva o que precisa fazer. A IA sugere dia e horário; você confirma antes de entrar na agenda.',fitForm()+fitPrev)}
