@@ -751,11 +751,12 @@ function genShifts(){
   let d=r.upto?addD(r.upto,1):r.start;if(d<r.start)d=r.start;
   const off=diffD(r.start,d)%7;if(off)d=addD(d,7-off);
   const lim=r.until&&addD(r.until,-1)<hz?addD(r.until,-1):hz;
-  while(d<=lim){if(isoPar(d)===r.par){const id=r.id+'-'+d;if(!S.shifts.some(x=>x.id===id)){S.shifts.push({id,date:d,start:r.t0,end:r.t1,kind:r.kind,v12:S.settings.rates[r.kind],rule:r.id});ch=true}}d=addD(d,7)}
+  while(d<=lim){if(r.par==='all'||isoPar(d)===r.par){const id=r.id+'-'+d;if(!S.shifts.some(x=>x.id===id)){S.shifts.push({id,date:d,start:r.t0,end:r.t1,kind:r.kind,v12:S.settings.rates[r.kind],rule:r.id});ch=true}}d=addD(d,7)}
   if(!r.upto||r.upto<lim){r.upto=lim;ch=true}
  }
  if(ch)save('rules','shifts');
 }
+const dropRuleFrom=(id,from)=>{S.shifts=S.shifts.filter(x=>!(x.rule===id&&x.date>=from&&!shiftDone(x)))};
 const dropFutureRule=id=>{const t=today();S.shifts=S.shifts.filter(x=>!(x.rule===id&&x.date>=t&&!shiftDone(x)))};
 const BASE_PAR={odd:'2026-10-05',even:'2026-10-12'};
 const ruleWd=r=>(P(r.start).getDay()+6)%7;
@@ -763,7 +764,7 @@ const ruleLabel=r=>`${WDL[P(r.start).getDay()]} · ${kindName(r.kind)} ${hm(r.t0
 function ruleForm(r){
  const o=r||{par:'odd',start:BASE_PAR.odd,t0:'07:00',t1:'19:00',kind:'tutora'};
  sheet(r?'Editar plantão fixo':'Novo plantão fixo',`<form class="sh-b" data-f="rule" data-id="${r?r.id:''}">
-  <div class="grid2"><label class="field"><span>Semana</span><select class="in" id="rfWk"><option value="odd" ${o.par==='odd'?'selected':''}>Ímpar</option><option value="even" ${o.par==='even'?'selected':''}>Par</option></select></label>
+  <div class="grid2"><label class="field"><span>Semana</span><select class="in" id="rfWk"><option value="odd" ${o.par==='odd'?'selected':''}>Ímpar</option><option value="even" ${o.par==='even'?'selected':''}>Par</option><option value="all" ${o.par==='all'?'selected':''}>Todas</option></select></label>
   <label class="field"><span>Dia</span><select class="in" id="rfWd">${['segunda','terça','quarta','quinta','sexta','sábado','domingo'].map((n,i)=>`<option value="${i}" ${ruleWd(o)===i?'selected':''}>${n}</option>`).join('')}</select></label></div>
   <div class="grid2"><label class="field"><span>Início</span><input class="in" type="time" id="rfT0" value="${o.t0}" required></label><label class="field"><span>Fim</span><input class="in" type="time" id="rfT1" value="${o.t1}" required></label></div>
   <label class="field"><span>Tipo</span><select class="in" id="rfKind"><option value="tutora" ${o.kind==='tutora'?'selected':''}>Tutora</option><option value="porta" ${o.kind==='porta'?'selected':''}>Porta</option></select></label>
@@ -1284,6 +1285,73 @@ function eChart(){
 function fitPreview(){return FIT?`<div>${FIT.options.map((o,i)=>`<div class="opt"><b>${i===0?'Melhor opção':'Alternativa'}: ${h(dLabel(o.date))}${o.time?' às '+h(hm(o.time)):''}</b><span class="small">${h(FIT.title)} · ${h(T(FIT.type).n)}</span><span class="small muted">${h(o.reason||'')}</span><div><button class="btn sm pri" data-a="fitAdd" data-i="${i}">Adicionar este</button></div></div>`).join('')}</div>`:''}
 function fitForm(){const off=aiState==='off';return `<form data-f="aiFit"><textarea class="in" id="aiFitTxt" data-d rows="2" placeholder="Ex.: renovar CRM, umas 2 h, de manhã · ou: lembrete amanhã ligar para Carol">${h(D.aiFitTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.fit?.busy?'disabled':''}>Sugerir encaixe</button></div></form>`}
 function cFitHome(){return `<section class="card" aria-label="Encaixar uma atividade com IA"><div class="card-h"><h3>Adicionar atividade · IA</h3><button class="link" data-a="tab" data-v="agendar">Agendar direto</button></div><p class="tiny faint" style="margin:-4px 0 8px">A IA sugere o melhor dia e horário; você confirma.</p>${aiState==='off'?'<p class="empty">IA indisponível nesta visualização.</p>':fitForm()+aiOut('fit')+fitPreview()}</section>`}
+/* ---------- Assistente de comandos: IA propõe operações, você aplica ---------- */
+let CMD=null;
+const OPS_DOC=`Operações (use só estas; datas AAAA-MM-DD; horas HH:MM; weekday 0=domingo … 6=sábado; weeks: "all" toda semana, "odd" semanas ímpares, "even" semanas pares do calendário ISO):
+{"op":"end_fixed_shift","id":"<id do plantão fixo>","from":"data a partir da qual deixa de existir"}
+{"op":"add_fixed_shift","weekday":5,"weeks":"all","start":"07:00","end":"19:00","kind":"tutora|porta","from":"data de início"}
+{"op":"add_shift","date":"…","start":"…","end":"…","kind":"tutora|porta"}
+{"op":"delete_shift","id":"<id do plantão avulso>"}
+{"op":"add_task","title":"…","type":"pessoal|estudo|academia|yoga|lembrete","date":"…","time":"","end":"","fixed":true}
+{"op":"move_task","id":"…","date":"…","time":""}
+{"op":"delete_task","id":"…"}
+{"op":"add_series","title":"…","type":"pessoal|estudo|academia|yoga","weekday":4,"weeks":"all|odd|even","time":"16:00","end":"","from":"…"}
+{"op":"end_series","id":"…","from":"…"}
+{"op":"skip_day","id":"<id da série>","date":"…"}
+{"op":"set_rate","kind":"tutora|porta","value12h":2200}`;
+function cmdContext(){const t=today(),L=[];
+ L.push(`Hoje: ${dLong(t)} (${t}), ${weekLbl(t)}.`);
+ L.push('\nPLANTÕES FIXOS (geram plantões automaticamente):');
+ for(const r of S.rules)L.push(`- id=${r.id}: ${WDL[P(r.start).getDay()]} ${r.par==='all'?'toda semana':r.par==='odd'?'semanas ímpares':'semanas pares'}, ${kindName(r.kind)} ${r.t0}–${r.t1}${r.until?`, até ${addD(r.until,-1)}`:''}`);
+ if(!S.rules.length)L.push('- nenhum');
+ L.push('\nPLANTÕES AVULSOS FUTUROS (não vêm de plantão fixo):');
+ const av=S.shifts.filter(x=>!x.rule&&x.date>=t).sort((a,b)=>a.date.localeCompare(b.date));
+ for(const x of av)L.push(`- id=${x.id}: ${x.date} ${kindName(x.kind)} ${x.start}–${x.end}`);if(!av.length)L.push('- nenhum');
+ L.push('\nSÉRIES (treinos, terapia etc.):');
+ for(const r of S.series)L.push(`- id=${r.id}: ${r.title} (${r.type}) ${REC[r.rule]} ${WDL[P(r.start).getDay()]}${r.time?' '+r.time:''}${r.end?'–'+r.end:''}, desde ${r.start}${r.until?`, até ${addD(r.until,-1)}`:''}`);
+ L.push('\nTAREFAS E COMPROMISSOS DOS PRÓXIMOS 90 DIAS:');
+ const ts=S.tasks.filter(x=>x.date>=t&&x.date<=addD(t,90)).sort((a,b)=>a.date.localeCompare(b.date));
+ for(const x of ts.slice(0,150))L.push(`- id=${x.id}: ${x.date}${x.time?' '+x.time:''} ${x.title} (${x.type}${x.fixed?', fixo':''}${x.done?', feito':''})`);if(!ts.length)L.push('- nenhuma');
+ L.push(`\nValores por 12 h: Tutora ${S.settings.rates.tutora}, Porta ${S.settings.rates.porta}.`);
+ return L.join('\n')}
+const okD=x=>/^\d{4}-\d{2}-\d{2}$/.test(x||'')&&!isNaN(P(x));
+const okT=x=>!x||/^\d{2}:\d{2}$/.test(x);
+function firstWd(from,wd,weeks){let d=from;for(let i=0;i<21;i++){if(P(d).getDay()===wd&&(weeks==='all'||isoPar(d)===weeks))return d;d=addD(d,1)}return null}
+function cmdDescribe(o){const t=today();
+ const R=id=>S.rules.find(r=>r.id===id),SE=id=>S.series.find(r=>r.id===id),TK=id=>findTask(id),SH=id=>S.shifts.find(x=>x.id===id);
+ const wk=w=>w==='odd'?'de semana ímpar':w==='even'?'de semana par':'';const wdn=n=>WDL[+n]||'?';
+ switch(o.op){
+  case 'end_fixed_shift':{const r=R(o.id);if(!r||!okD(o.from))return null;const n=S.shifts.filter(x=>x.rule===r.id&&x.date>=o.from&&!shiftDone(x)).length;return `Encerrar plantão fixo: ${ruleLabel(r)} (${r.par==='all'?'toda semana':r.par==='odd'?'semanas ímpares':'semanas pares'}) a partir de ${dLabel(o.from)} · remove ${n} plantão(ões) da agenda`}
+  case 'add_fixed_shift':{if(!(o.weekday>=0&&o.weekday<=6)||!okD(o.from)||!okT(o.start)||!okT(o.end)||!o.start||!o.end||!['tutora','porta'].includes(o.kind))return null;const w=o.weeks||'all';const f=firstWd(o.from,+o.weekday,w);return f?`Novo plantão fixo: toda ${wdn(o.weekday)} ${wk(w)} · ${kindName(o.kind)} ${hm(o.start)}–${hm(o.end)} · começa ${dLabel(f)}`:null}
+  case 'add_shift':return okD(o.date)&&o.start&&o.end&&['tutora','porta'].includes(o.kind)?`Novo plantão: ${dLabel(o.date)} · ${kindName(o.kind)} ${hm(o.start)}–${hm(o.end)}`:null;
+  case 'delete_shift':{const x=SH(o.id);return x?`Excluir plantão: ${dLabel(x.date)} · ${kindName(x.kind)} ${hm(x.start)}–${hm(x.end)}`:null}
+  case 'add_task':return o.title&&okD(o.date)&&okT(o.time)?`Adicionar: ${o.type==='lembrete'?'lembrete ':''}${o.title} · ${dLabel(o.date)}${o.time?' '+hm(o.time):''}${o.end?'–'+hm(o.end):''}`:null;
+  case 'move_task':{const x=TK(o.id);return x&&okD(o.date)&&okT(o.time)?`Mover: ${x.title} · ${dLabel(x.date)} → ${dLabel(o.date)}${o.time?' '+hm(o.time):''}`:null}
+  case 'delete_task':{const x=TK(o.id);return x?`Excluir: ${x.title} (${dLabel(x.date)})`:null}
+  case 'add_series':{if(!o.title||!(o.weekday>=0&&o.weekday<=6)||!okD(o.from)||!okT(o.time))return null;const w=o.weeks||'all';const f=firstWd(o.from,+o.weekday,w);return f?`Nova repetição: ${o.title} · toda ${wdn(o.weekday)} ${wk(w)}${o.time?' '+hm(o.time):''}${o.end?'–'+hm(o.end):''} · começa ${dLabel(f)}`:null}
+  case 'end_series':{const r=SE(o.id);return r&&okD(o.from)?`Encerrar repetição: ${r.title} (${REC[r.rule]}) a partir de ${dLabel(o.from)}`:null}
+  case 'skip_day':{const r=SE(o.id);return r&&okD(o.date)&&occurs(r,o.date)?`Pular: ${r.title} em ${dLabel(o.date)}`:null}
+  case 'set_rate':return ['tutora','porta'].includes(o.kind)&&o.value12h>0?`Valor do plantão ${kindName(o.kind)}: ${brl(o.value12h)} por 12 h (plantões novos)`:null;
+ }return null}
+function cmdApply(o){
+ switch(o.op){
+  case 'end_fixed_shift':{const r=S.rules.find(x=>x.id===o.id);dropRuleFrom(r.id,o.from);if(o.from<=r.start)S.rules=S.rules.filter(x=>x!==r);else r.until=o.from;break}
+  case 'add_fixed_shift':{const w=o.weeks||'all',f=firstWd(o.from,+o.weekday,w);S.rules.push({id:nid(),par:w,start:f,t0:o.start,t1:o.end,kind:o.kind,upto:addD(f,-1)});break}
+  case 'add_shift':S.shifts.push({id:nid(),date:o.date,start:o.start,end:o.end,kind:o.kind,v12:S.settings.rates[o.kind]});break;
+  case 'delete_shift':S.shifts=S.shifts.filter(x=>x.id!==o.id);break;
+  case 'add_task':S.tasks.push({id:nid(),title:String(o.title).slice(0,120),type:S.settings.types[o.type]&&o.type!=='plantao'?o.type:'pessoal',date:o.date,time:o.time||'',end:o.end||'',fixed:o.fixed!==false,done:false,created:Date.now()});break;
+  case 'move_task':{const x=findTask(o.id);x.date=o.date;if(o.time)x.time=o.time;break}
+  case 'delete_task':S.tasks=S.tasks.filter(x=>x.id!==o.id);break;
+  case 'add_series':{const w=o.weeks||'all',f=firstWd(o.from,+o.weekday,w);S.series.push({id:nid(),title:String(o.title).slice(0,80),type:S.settings.types[o.type]&&o.type!=='plantao'?o.type:'pessoal',time:o.time||'',end:o.end||'',start:f,rule:w==='all'?'weekly':w,skip:[],done:[]});break}
+  case 'end_series':{const r=S.series.find(x=>x.id===o.id);if(o.from<=r.start)S.series=S.series.filter(x=>x!==r);else r.until=o.from;break}
+  case 'skip_day':{const r=S.series.find(x=>x.id===o.id);r.skip=[...(r.skip||[]),o.date];break}
+  case 'set_rate':S.settings.rates[o.kind]=+o.value12h;break;
+ }}
+function cmdPreview(){if(!CMD)return '';
+ return `<div style="margin-top:12px">${CMD.reply?`<div class="ai-out">${md(CMD.reply)}</div>`:''}
+ ${CMD.ops.length?`<div class="small muted" style="margin:6px 0">${CMD.ops.length} mudança${CMD.ops.length>1?'s':''}. Desmarque o que não quiser:</div>${CMD.ops.map((o,i)=>`<label class="qk-row" style="cursor:pointer"><input type="checkbox" data-cmd="${i}" ${o.on?'checked':''}><span class="grow">${h(o.desc)}</span></label>`).join('')}
+ <div class="btns" style="margin-top:10px"><button class="btn pri" data-a="cmdApply">Aplicar ${CMD.ops.filter(o=>o.on).length} mudança${CMD.ops.filter(o=>o.on).length===1?'':'s'}</button><button class="btn" data-a="cmdCancel">Descartar</button></div>`:''}
+ ${CMD.bad?`<p class="tiny faint" style="margin:6px 0 0">${CMD.bad} sugestão(ões) da IA foram ignoradas por estarem incompletas.</p>`:''}</div>`}
 function vAI(){
  const off=aiState==='off';
  const card=(key,title,desc,body)=>`<section class="card"><div class="card-h"><h3>${title}</h3></div>${desc?`<p class="small muted" style="margin:0 0 10px">${desc}</p>`:''}${body}${aiOut(key)}</section>`;
@@ -1294,6 +1362,7 @@ function vAI(){
  return `<div class="ph"><div><h1>IA</h1><div class="sub">Lê sua agenda de 14 dias, energia, tarefas e o mês financeiro</div></div></div>
  ${off?`<div class="ai-off">A IA não está disponível nesta visualização. Abra o app pelo claude.ai com sua conta para usar estes recursos.</div>`:''}
  <div class="cols">
+ <div class="span2">${card('cmd','Assistente: peça mudanças na agenda','Escreva o que mudou na sua rotina. A IA monta as mudanças e você confere antes de aplicar.',`<form data-f="aiCmd"><textarea class="in" id="aiCmdTxt" data-d rows="3" placeholder="Ex.: a partir de novembro só farei plantão de tutora toda sexta e sábado; não farei mais plantão de porta.">${h(D.aiCmdTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.cmd?.busy?'disabled':''}>Montar mudanças</button></div></form>${cmdPreview()}`)}</div>
  ${card('week','Avaliar minha semana','Opinião sincera sobre os próximos 7 dias, com 2–3 ações concretas.',`<button class="btn pri" data-a="aiWeek" ${off||AI.week?.busy?'disabled':''}>Avaliar minha semana</button>`)}
  ${card('mot','Preciso de motivação','Mensagem curta e honesta, com um próximo passo possível hoje.',`<button class="btn pri" data-a="aiMot" ${off||AI.mot?.busy?'disabled':''}>Preciso de motivação</button>`)}
  ${card('fit','Encaixar uma atividade','Descreva o que precisa fazer. A IA sugere dia e horário; você confirma antes de entrar na agenda.',fitForm()+fitPrev)}
@@ -1560,7 +1629,7 @@ function settingsSheet(){
  <div class="sh-sec"><h4>Treinos · semanas ímpares</h4><ul class="lst">${A.map(ser).join('')||'<li class="empty">Nenhum</li>'}</ul></div>
  <div class="sh-sec"><h4>Treinos · semanas pares</h4><ul class="lst">${B.map(ser).join('')||'<li class="empty">Nenhum</li>'}</ul><p class="tiny faint" style="margin:0">Ímpar ou par segue a numeração das semanas do calendário (esta é a ${weekLbl(today())}). Toque para editar horário ou dia.</p></div>
  ${O.length?`<div class="sh-sec"><h4>Outras séries</h4><ul class="lst">${O.map(ser).join('')}</ul></div>`:''}
- <div class="sh-sec"><h4>Plantões fixos</h4>${['odd','even'].map(w=>`<p class="tiny faint" style="margin:4px 0 0">Semanas ${w==='odd'?'ímpares':'pares'}</p><ul class="lst">${S.rules.filter(r=>r.par===w).sort((a,b)=>ruleWd(a)-ruleWd(b)).map(r=>`<li><span class="dot" style="background:${T('plantao').c}"></span><button class="grow" data-a="editRule" data-id="${r.id}"><b>${h(ruleLabel(r))}</b><span class="tiny faint">${f1(shiftHours({start:r.t0,end:r.t1})).replace(',0','')} h · ${brl(shiftHours({start:r.t0,end:r.t1})*S.settings.rates[r.kind]/12)}</span></button></li>`).join('')||'<li class="empty">Nenhum</li>'}</ul>`).join('')}<div class="btns"><button class="btn sm" data-a="newRule">+ Plantão fixo</button></div></div>
+ <div class="sh-sec"><h4>Plantões fixos</h4>${['all','odd','even'].filter(w=>w!=='all'||S.rules.some(r=>r.par==='all')).map(w=>`<p class="tiny faint" style="margin:4px 0 0">${w==='all'?'Todas as semanas':'Semanas '+(w==='odd'?'ímpares':'pares')}</p><ul class="lst">${S.rules.filter(r=>r.par===w).sort((a,b)=>ruleWd(a)-ruleWd(b)).map(r=>`<li><span class="dot" style="background:${T('plantao').c}"></span><button class="grow" data-a="editRule" data-id="${r.id}"><b>${h(ruleLabel(r))}</b><span class="tiny faint">${f1(shiftHours({start:r.t0,end:r.t1})).replace(',0','')} h · ${brl(shiftHours({start:r.t0,end:r.t1})*S.settings.rates[r.kind]/12)}</span></button></li>`).join('')||'<li class="empty">Nenhum</li>'}</ul>`).join('')}<div class="btns"><button class="btn sm" data-a="newRule">+ Plantão fixo</button></div></div>
  <div class="sh-sec"><h4>Agenda</h4><div class="btns"><button class="btn" data-a="ics">Exportar agenda (.ics)</button></div><p class="tiny faint" style="margin:0">Importe no TickTick, Google Agenda ou Apple Calendário.</p></div>
  <div class="sh-sec"><h4>Dados</h4><p class="small" style="margin:0">${mode==='cloud'?'Salvos na sua conta: aparecem iguais no celular e no computador.':'Salvos só neste navegador (o banco da conta não respondeu). Exporte um backup de vez em quando.'}</p>
  <div class="btns"><button class="btn" data-a="backup">Exportar backup (.json)</button><label class="btn" for="bkIn">Importar backup</label><input type="file" id="bkIn" accept="application/json,.json" hidden></div></div>`);
@@ -1598,6 +1667,10 @@ const ACT={
  remDone:el=>{const r=findTask(el.dataset.id);if(r){r.done=true;r.doneAt=Date.now();save('tasks')}},
  remTomorrow:el=>{const r=findTask(el.dataset.id);if(r){r.date=addD(today(),1);save('tasks');toast('Lembrete para amanhã.')}},
  gcDone:el=>{const g=new Set(S.settings.gdone||[]);const id=el.dataset.id;g.has(id)?g.delete(id):g.add(id);S.settings.gdone=[...g].slice(-600);save('settings')},
+ cmdApply:()=>{if(!CMD)return;const sel=CMD.ops.filter(o=>o.on);let n=0;
+  for(const o of sel){if(!cmdDescribe(o))continue;try{cmdApply(o);n++}catch(e){}}
+  genShifts();CMD=null;AI.cmd=null;D.aiCmdTxt='';save('rules','shifts','series','tasks','settings');toast(`${n} mudança${n===1?'':'s'} aplicada${n===1?'':'s'}.`)},
+ cmdCancel:()=>{CMD=null;AI.cmd=null;render()},
  quickUndo:el=>{const id=el.dataset.id;if(el.dataset.k==='ser'){S.series=S.series.filter(x=>x.id!==id);save('series')}else{S.tasks=S.tasks.filter(x=>x.id!==id);save('tasks')}QK_RECENT=QK_RECENT.filter(x=>x.id!==id);render();toast('Desfeito.')},
  quickTab:()=>{closeAll();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
@@ -1692,6 +1765,7 @@ document.addEventListener('change',e=>{
  const el=e.target;
  if(el.dataset.color){S.settings.types[el.dataset.color].c=el.value;save('settings')}
  if(el.dataset.a2==='moveTaskInput'&&el.value){ACT.moveTask({dataset:{id:el.dataset.id,ds:el.value}})}
+ if(el.dataset.cmd!=null&&CMD){const o=CMD.ops[+el.dataset.cmd];if(o){o.on=el.checked;render()}}
  if(el.dataset.mw==='on'&&MW){MW.items[+el.dataset.i].on=el.checked;render()}
  if(el.id==='tfType'){const l=$('#tfTitleL');if(l)l.textContent=el.value==='estudo'?'Tema (na agenda aparece só "Estudo")':'Título'}
  if(el.id==='bkIn'&&el.files[0]){const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(!o||typeof o!=='object'||!o.settings)throw 0;
@@ -1723,7 +1797,7 @@ const FORMS={
  },
  rule:f=>{
   const id=f.dataset.id,wkv=$('#rfWk').value,wd=+$('#rfWd').value,t0=$('#rfT0').value,t1=$('#rfT1').value,kind=$('#rfKind').value;
-  if(!t0||!t1)return;const start=addD(BASE_PAR[wkv],wd),y=addD(today(),-1);
+  if(!t0||!t1)return;const start=addD(BASE_PAR[wkv]||BASE_PAR.odd,wd),y=addD(today(),-1);
   if(id){const r=S.rules.find(x=>x.id===id);if(!r)return;dropFutureRule(r.id);Object.assign(r,{par:wkv,start,t0,t1,kind,upto:y});delete r.until}
   else S.rules.push({id:nid(),par:wkv,start,t0,t1,kind,upto:y});
   genShifts();save('rules','shifts');settingsSheet();toast('Plantão fixo salvo.');
@@ -1745,6 +1819,17 @@ const FORMS={
  fixedName:f=>{const fx=S.money.fixed.find(x=>x.id===f.dataset.id);const n=$('#fxNN').value.trim();if(!fx||!n)return;fx.name=n;save('money');fixedSheet(fx)},
  rates:f=>{const a=parseBRL($('#rtT').value),b=parseBRL($('#rtP').value);if(!(a>0)||!(b>0)){toast('Valores inválidos.');return}S.settings.rates={tutora:a,porta:b};save('settings');toast('Valores salvos.');settingsSheet()},
  aiQ:()=>{const q=(D.aiQTxt||'').trim();if(!q)return;aiText('q',`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nPERGUNTA DELA: ${q}\n\nResponda de forma objetiva usando os dados acima (energia, plantões, capacidade, dinheiro). Se faltar informação, diga qual. Até 180 palavras.`)},
+ aiCmd:async()=>{
+  const q=(D.aiCmdTxt||'').trim();if(!q||!sampleFn)return;
+  const ctl=new AbortController();AI.cmd={busy:true,text:'',err:'',ctl};CMD=null;render();
+  try{
+   const r=await sampleFn.json(`${PERSONA}\n\nVocê está editando a agenda do app dela. Leia o pedido, entenda a intenção e devolva as operações que deixam a agenda como ela pediu. Seja completa: se ela diz que não fará mais um tipo de plantão a partir de uma data, encerre TODOS os plantões fixos desse tipo a partir dessa data e exclua os plantões avulsos desse tipo depois dela; se ela muda os dias de um plantão, encerre os antigos e crie os novos. Não mexa no que ela não pediu. Se algo estiver ambíguo (ex.: horário não informado), use o que já existe na agenda para o mesmo tipo e diga isso na resposta.\n\nAGENDA ATUAL:\n${cmdContext()}\n\n${OPS_DOC}\n\nPEDIDO DELA: ${q}\n\nResponda só com JSON: {"reply":"2 a 4 frases em português explicando o que vai mudar e qualquer suposição feita","ops":[...]}`,{signal:ctl.signal});
+   const raw=Array.isArray(r&&r.ops)?r.ops:[];let bad=0;const ops=[];
+   for(const o of raw.slice(0,80)){if(!o||typeof o!=='object'){bad++;continue}const d=cmdDescribe(o);if(d)ops.push({...o,desc:d,on:true});else bad++}
+   CMD={reply:String(r&&r.reply||''),ops,bad};AI.cmd.text='';
+  }catch(e){aiFail('cmd',e);AI.cmd.text=''}
+  AI.cmd.busy=false;render();
+ },
  aiFit:async()=>{
   const q=(D.aiFitTxt||'').trim();if(!q)return;
   if(/^\s*(lembretes?|me\s+lembr|lembrar|lembra\s)/i.test(q)){const p=parseQuick(q);S.tasks.push({id:nid(),title:p.title,type:'lembrete',date:p.date,time:p.time,end:'',fixed:true,done:false,created:Date.now()});D.aiFitTxt='';save('tasks');toast(`Lembrete: ${p.title} → ${dLabel(p.date)}${p.time?' '+hm(p.time):''}`);return}
