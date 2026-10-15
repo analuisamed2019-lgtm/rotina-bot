@@ -100,6 +100,7 @@ main{max-width:1440px;margin:0 auto;padding-block:14px 8px;padding-inline:16px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--line-2);background:var(--surface);font-weight:600;font-size:14px;white-space:nowrap}
 .btn:hover{background:var(--surface-2)}
 a.btn{text-decoration:none;color:var(--fg)}
+a.link{text-decoration:none}
 .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
 .btn.pri:hover{filter:brightness(1.08)}
 .btn.sm{height:30px;padding:0 10px;font-size:13px;border-radius:8px}
@@ -967,11 +968,15 @@ function upcomingStudies(){
  return Object.entries(by).map(([k,l])=>[k,l.sort((a,b)=>a.date.localeCompare(b.date))]).filter(([k,l])=>l.some(x=>!x.done||x.date>=t)).sort((a,b)=>a[1][0].date.localeCompare(b[1][0].date));
 }
 function cStudies(){
+ // próximos dias de estudo vindos da Agenda Inteligente Medway (Google Agenda) + temas criados no app
+ const t=today(),gdone=S.settings.gdone||[],days=[];
+ for(let i=0;i<21&&days.length<5;i++){const ds=addD(t,i),g=GC.byDay[ds];if(g&&g.med.length)days.push([ds,g.med])}
  const l=upcomingStudies();
- return `<section class="card" aria-label="Estudos"><div class="card-h"><h3>Estudos · Medway</h3><button class="link" data-a="goMedway">Importar</button></div>
- ${l.length?`<ul class="lst">${l.slice(0,8).map(([k,xs])=>`<li><span class="dot" style="background:${T('estudo').c}"></span><div class="grow"><span class="study-t">${h(k)}</span><span class="dchips">${xs.map(x=>`<button class="dchip ${x.done?'ok':''}" data-a="open" data-k="task" data-id="${x.id}">${dLabel(x.date)}</button>`).join('')}</span></div></li>`).join('')}</ul>${l.length>8?`<p class="tiny faint">+${l.length-8} temas</p>`:''}`
- :'<p class="empty">Nenhum tema agendado. Cole o cronograma da Medway na aba IA e os temas são distribuídos nos seus dias livres.</p>'}
- <div class="btns" style="margin-top:8px"><button class="btn sm" data-a="newTask" data-type="estudo">+ Tema</button></div></section>`;
+ const med=days.length?`<ul class="lst">${days.map(([ds,ev])=>`<li><span class="dot" style="background:${T('estudo').c}"></span><button class="grow" data-a="open" data-k="gcal" data-id="gm-${ds}" data-day="${ds}"><b>${dLabel(ds)} · ${hm(ev[0].time)}–${hm(ev.reduce((m,e)=>e.end>m?e.end:m,''))}</b><span class="tiny faint">${h(ev.map(e=>e.title).join(' · '))}</span></button><span class="tiny faint num">${ev.filter(e=>gdone.includes(e.id)).length}/${ev.length}</span></li>`).join('')}</ul>`
+  :`<p class="empty">${GC.state==='loading'?'Carregando a agenda da Medway…':GC.state==='off'||GC.state==='err'?'Não consegui ler o Google Agenda agora.':'Nenhum estudo da Medway nas próximas 3 semanas.'}</p>`;
+ const own=l.length?`<p class="tiny faint" style="margin:10px 0 2px">Temas criados no app</p><ul class="lst">${l.slice(0,5).map(([k,xs])=>`<li><span class="dot" style="background:${T('estudo').c}"></span><div class="grow"><span class="study-t">${h(k)}</span><span class="dchips">${xs.map(x=>`<button class="dchip ${x.done?'ok':''}" data-a="open" data-k="task" data-id="${x.id}">${dLabel(x.date)}</button>`).join('')}</span></div></li>`).join('')}</ul>`:'';
+ return `<section class="card" aria-label="Estudos"><div class="card-h"><h3>Estudos · Medway</h3><a class="link" href="https://app.medway.com.br/dashboard/my-week" target="_blank" rel="noopener">Abrir Medway</a></div>${med}${own}
+ <div class="btns" style="margin-top:8px"><button class="btn sm" data-a="newTask" data-type="estudo">+ Estudo extra</button></div></section>`;
 }
 function cMoneyMini(){
  const m=monthMoney(ym(today()));
@@ -1372,7 +1377,6 @@ function vAI(){
  ${card('week','Avaliar minha semana','Opinião sincera sobre os próximos 7 dias, com 2–3 ações concretas.',`<button class="btn pri" data-a="aiWeek" ${off||AI.week?.busy?'disabled':''}>Avaliar minha semana</button>`)}
  ${card('mot','Preciso de motivação','Mensagem curta e honesta, com um próximo passo possível hoje.',`<button class="btn pri" data-a="aiMot" ${off||AI.mot?.busy?'disabled':''}>Preciso de motivação</button>`)}
  ${card('fit','Encaixar uma atividade','Descreva o que precisa fazer. A IA sugere dia e horário; você confirma antes de entrar na agenda.',fitForm()+fitPrev)}
- ${card('mw','Importar cronograma da Medway','Cole o texto do cronograma'+(aiImages?' ou envie um print':'')+'. A IA extrai os temas e o app distribui nos seus dias livres.',`<form data-f="aiMw"><textarea class="in" id="aiMwTxt" data-d rows="4" placeholder="Cole aqui o cronograma…">${h(D.aiMwTxt||'')}</textarea>${aiImages?`<label class="field" style="margin-top:8px"><span>Print do cronograma (opcional)</span><input class="in" type="file" id="aiMwImg" accept="image/png,image/jpeg,image/webp" multiple style="padding:7px"></label>`:''}<div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.mw?.busy?'disabled':''}>Extrair temas</button></div></form>${mwPrev}`)}
  <div class="span2">${card('q','Pergunte o que quiser','Ex.: "vale aceitar um plantão extra no sábado?"',`<form data-f="aiQ"><textarea class="in" id="aiQTxt" data-d rows="2" placeholder="Sua pergunta…">${h(D.aiQTxt||'')}</textarea><div class="btns" style="margin-top:8px"><button class="btn pri" ${off||AI.q?.busy?'disabled':''}>Perguntar</button></div></form>`)}</div>
  </div>`;
 }
@@ -1748,7 +1752,6 @@ const ACT={
  ics:()=>exportICS(),
  copyIcs:()=>{const t=$('#icsTxt');navigator.clipboard?.writeText(t.value).then(()=>toast('Copiado.'),()=>{t.select()})||t.select()},
  backup:async()=>{const ok=await saveFile(`calendario-pessoal-backup-${today()}.json`,JSON.stringify(S,null,1));if(ok===null)toast('Este visualizador não permite baixar arquivos.')},
- goMedway:()=>{tab='ia';render();setTimeout(()=>document.getElementById('aiMwTxt')?.scrollIntoView({block:'center'}),50)},
  aiWeek:()=>aiText('week',`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nTAREFA: Avalie os próximos 7 dias. Diga se a semana está cheia demais, equilibrada ou leve, e por quê. Considere plantões, energia prevista, sono depois de plantão noturno e sinais de procrastinação (tarefas remanejadas várias vezes). Depois dê 2 ou 3 ações concretas (com dia) e termine com uma frase curta de motivação. Formato: um parágrafo de veredito, uma lista curta de ações, a frase final. Até 200 palavras.`),
  aiMot:()=>aiText('mot',`${PERSONA}\n\nCONTEXTO:\n${aiContext()}\n\nTAREFA: Ela pediu motivação agora. Escreva uma mensagem curta (até 70 palavras), honesta e calorosa, que reconheça o momento real dela pelos dados e termine com UM próximo passo pequeno e possível hoje (algo de 5 a 25 minutos). Sem clichês nem listas.`),
  aiStop:el=>{AI[el.dataset.v]?.ctl?.abort()},
