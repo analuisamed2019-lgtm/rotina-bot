@@ -864,7 +864,7 @@ function render(){
 /* ---------- Semana (tela inicial) ---------- */
 function vHome(){
  const notes=cNotes(),week=cWeek(),cal=cCal(),en=cEnergy(),av=cNotices(),st=cStudies(),mo=cMoneyMini();
- if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${st}</div><div class="stack">${week}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
+ if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${st}</div><div class="stack">${week}${cMonthDesk()}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
  return `<div class="home">${notes}${cFitHome()}${cCmdHome()}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${st}${mo}</div></div>`;
 }
 function sortedNotes(){return [...S.notes].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.upd-a.upd)}
@@ -1576,6 +1576,13 @@ function monthCell(ds){
  const lines=its.slice(0,4).map(it=>`<span style="--c:${T(it.type).c}${it.done&&it.k!=='shift'?';opacity:.55;text-decoration:line-through':''}">${lab(it)}</span>`).join('')+(its.length>4?`<em>+${its.length-4}</em>`:'');
  return `<button class="mv-c ${a?'av-'+a.cls:''} ${ym(ds)!==MV.m?'out':''} ${ds===t?'today':''} ${ds===MV.sel?'sel':''}" data-a="mvSel" data-ds="${ds}" aria-label="${dLong(ds)}${a?', '+a.long:''}"><span class="mv-top"><span class="mv-n">${P(ds).getDate()}</span>${a?`<span class="av ${a.cls}">${a.short}</span>`:''}</span><span class="mv-it">${lines}</span></button>`;
 }
+// computador: mês detalhado logo abaixo da semana (mesma grade do mês ampliado)
+function cMonthDesk(){const m=MV.m,start=monday(m+'-01');let cells='',sh=0,hrs=0,free=0;
+ for(let i=0;i<42;i++){const ds=addD(start,i);if(i>=35&&ym(ds)!==m)break;cells+=monthCell(ds);
+  if(ym(ds)===m){const a=availOf(ds);if(a&&a.cls==='ok')free++;for(const x of S.shifts)if(x.date===ds){sh++;hrs+=shiftHours(x)}}}
+ return `<section class="card mv-wrap" aria-label="Mês detalhado"><div class="mv-nav"><b>${cap1(mLabel(m))}</b><span class="small muted">${sh} plantões · ${Math.round(hrs)} h · ${free} dias com espaço</span><div class="wk-nav"><button class="icon-btn" data-a="deskM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><button class="btn sm" data-a="deskM" data-v="0">Hoje</button><button class="icon-btn" data-a="deskM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
+ <div class="mv">${['seg','ter','qua','qui','sex','sáb','dom'].map(w=>`<span class="wd">${w}</span>`).join('')}${cells}</div>
+ <div class="legend"><span><i style="background:var(--good)"></i>tem espaço</span><span><i style="background:var(--warn)"></i>cheio</span><span><i style="background:var(--bad)"></i>plantão longo / sem espaço</span><span class="faint">Toque num dia para abrir, adicionar ou mudar.</span></div></section>`}
 function monthList(){const m=MV.m,t=today();let out='';
  for(let ds=m+'-01';ym(ds)===m;ds=addD(ds,1)){const its=itemsOn(ds),a=availOf(ds),d=P(ds);
   out+=`<button class="mv-row ${ds===t?'today':''}" data-a="dayOpen" data-ds="${ds}"><span class="mv-rd"><span>${WD[d.getDay()]}</span><b class="num">${d.getDate()}</b></span><span class="mv-ri">${its.length?its.map(it=>`<div><i>${it.k==='shift'?hm(it.o.start)+'–'+hm(it.o.end):it.time?hm(it.time)+(it.o.end?'–'+hm(it.o.end):''):'—'}</i><span><span class="dot" style="background:${T(it.type).c};margin-right:6px"></span>${h(it.k==='shift'?'Plantão '+kindName(it.o.kind):it.type==='estudo'?'Estudo · '+it.title:it.title)}</span></div>`).join(''):'<div><span class="faint">livre</span></div>'}${a?`<div><span class="av ${a.cls}" style="display:inline">${a.long}</span></div>`:''}</span></button>`}
@@ -1698,6 +1705,7 @@ const ACT={
  monthOpen:()=>{const t=today();MV={...MV,m:calM,sel:ym(t)===calM?t:calM+'-01'};monthSheet()},
  dayOpen:el=>daySheet(el.dataset.ds),
  mvView:el=>{MV.view=el.dataset.v;try{localStorage.setItem(LS+'-mv',MV.view)}catch(e){}monthSheet();if(MV.view==='list')setTimeout(()=>document.querySelector('.mv-row.today')?.scrollIntoView({block:'start'}),30)},
+ deskM:el=>{const v=+el.dataset.v;MV.m=v===0?ym(today()):addM(MV.m,v);render()},
  mvM:el=>{const v=+el.dataset.v,t=today();MV.m=v===0?ym(t):addM(MV.m,v);MV.sel=ym(t)===MV.m?t:MV.m+'-01';monthSheet()},
  mvSel:el=>daySheet(el.dataset.ds),
  dayNav:el=>daySheet(el.dataset.ds),
