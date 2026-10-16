@@ -400,6 +400,12 @@ details.grp[open] summary::after{transform:rotate(-90deg)}
 .qk-row b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qk-row .grow{flex:1;min-width:0;display:flex;flex-direction:column}
 .qk-row .warn{color:var(--warn);font-size:12px}
+.shc button{height:46px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:13px;font-weight:600}
+.shc button.out{visibility:hidden}
+.shc button.on{background:color-mix(in srgb,var(--sh) 16%,var(--surface));color:var(--fg);box-shadow:inset 0 0 0 1.5px var(--sh)}
+.shc button.on.past{opacity:.55}
+.shc button small{font-size:9.5px;font-weight:700;color:var(--sh);letter-spacing:-.01em;white-space:nowrap}
+.shc button.today span{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:2px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 84px);z-index:60;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
 @media (min-width:1100px){ .toast{bottom:28px} }
 .sugs{display:flex;flex-wrap:wrap;gap:6px}
@@ -864,8 +870,8 @@ function render(){
 /* ---------- Semana (tela inicial) ---------- */
 function vHome(){
  const notes=cNotes(),week=cWeek(),cal=cCal(),en=cEnergy(),av=cNotices(),st=cStudies(),mo=cMoneyMini();
- if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${st}</div><div class="stack">${week}${cMonthDesk()}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
- return `<div class="home">${notes}${cFitHome()}${cCmdHome()}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${st}${mo}</div></div>`;
+ if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${cShiftCal()}${st}</div><div class="stack">${week}${cMonthDesk()}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
+ return `<div class="home">${notes}${cFitHome()}${cCmdHome()}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${cShiftCal()}${st}${mo}</div></div>`;
 }
 function sortedNotes(){return [...S.notes].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.upd-a.upd)}
 function noteTime(ts){const d=new Date(ts);return `${d.getDate()} ${MO[d.getMonth()]}, ${pad(d.getHours())}:${pad(d.getMinutes())}`}
@@ -901,6 +907,17 @@ function chipHTML(it){
 const _io=itemsOn;
 itemsOn=function(ds){const l=_io(ds);for(const it of l)it.day=ds;return l};
 
+// mini-calendário só com os dias de plantão
+let shM=ym(today());
+function cShiftCal(){const m=shM,start=monday(m+'-01'),t=today();let cells='',n=0,hrs=0,val=0;
+ for(let i=0;i<42;i++){const ds=addD(start,i);if(i>=35&&ym(ds)!==m)break;const out=ym(ds)!==m;
+  const l=out?[]:S.shifts.filter(x=>x.date===ds).sort((a,b)=>a.start.localeCompare(b.start));
+  for(const x of l){n++;hrs+=shiftHours(x);val+=shiftValue(x)}
+  const lab=l.map(x=>`${x.kind==='porta'?'P':'T'} ${+x.start.slice(0,2)}–${+x.end.slice(0,2)}`).join(' ');
+  cells+=`<button class="${out?'out':''} ${l.length?'on':''} ${ds<t?'past':''} ${ds===t?'today':''}" ${out?'tabindex="-1" aria-hidden="true"':`data-a="dayOpen" data-ds="${ds}" aria-label="${dLong(ds)}${l.length?', plantão '+l.map(x=>kindName(x.kind)+' '+hm(x.start)+' a '+hm(x.end)).join(', '):''}"`}><span class="num">${P(ds).getDate()}</span>${l.length?`<small>${lab}</small>`:''}</button>`}
+ return `<section class="card" aria-label="Plantões do mês" style="--sh:${T('plantao').c}"><div class="mc-h"><b>Plantões · ${MOL[+m.slice(5)-1]}</b><div class="wk-nav"><button class="icon-btn" data-a="shM" data-v="-1" aria-label="Mês anterior">${ico('l')}</button><button class="icon-btn" data-a="shM" data-v="1" aria-label="Próximo mês">${ico('r')}</button></div></div>
+ <div class="mc shc">${['seg','ter','qua','qui','sex','sáb','dom'].map(w=>`<span class="wd">${w}</span>`).join('')}${cells}</div>
+ <div class="legend" style="justify-content:space-between"><span><b class="num">${n}</b>&nbsp;plantões · ${Math.round(hrs)} h</span><span class="num">${brl0(val)}</span></div><p class="tiny faint" style="margin:2px 0 0">T = Tutora · P = Porta</p></section>`}
 function cCal(){
  const first=P(calM+'-01');const start=monday(ymd(first));const t=today();const wkEnd=addD(wk,6);
  let cells='';
@@ -1705,6 +1722,7 @@ const ACT={
  monthOpen:()=>{const t=today();MV={...MV,m:calM,sel:ym(t)===calM?t:calM+'-01'};monthSheet()},
  dayOpen:el=>daySheet(el.dataset.ds),
  mvView:el=>{MV.view=el.dataset.v;try{localStorage.setItem(LS+'-mv',MV.view)}catch(e){}monthSheet();if(MV.view==='list')setTimeout(()=>document.querySelector('.mv-row.today')?.scrollIntoView({block:'start'}),30)},
+ shM:el=>{shM=addM(shM,+el.dataset.v);render()},
  deskM:el=>{const v=+el.dataset.v;MV.m=v===0?ym(today()):addM(MV.m,v);render()},
  mvM:el=>{const v=+el.dataset.v,t=today();MV.m=v===0?ym(t):addM(MV.m,v);MV.sel=ym(t)===MV.m?t:MV.m+'-01';monthSheet()},
  mvSel:el=>daySheet(el.dataset.ds),
