@@ -752,11 +752,14 @@ function genShifts(to){
   let d=r.upto?addD(r.upto,1):r.start;if(d<r.start)d=r.start;
   const off=diffD(r.start,d)%7;if(off)d=addD(d,7-off);
   const lim=r.until&&addD(r.until,-1)<hz?addD(r.until,-1):hz;
-  while(d<=lim){if(r.par==='all'||isoPar(d)===r.par){const id=r.id+'-'+d;if(!S.shifts.some(x=>x.id===id)){S.shifts.push({id,date:d,start:r.t0,end:r.t1,kind:r.kind,v12:S.settings.rates[r.kind],rule:r.id});ch=true}}d=addD(d,7)}
+  while(d<=lim){if((r.par==='all'||isoPar(d)===r.par)&&!(r.skip||[]).includes(d)){const id=r.id+'-'+d;if(!S.shifts.some(x=>x.id===id)){S.shifts.push({id,date:d,start:r.t0,end:r.t1,kind:r.kind,v12:S.settings.rates[r.kind],rule:r.id});ch=true}}d=addD(d,7)}
   if(!r.upto||r.upto<lim){r.upto=lim;ch=true}
  }
  if(ch)save('rules','shifts');
 }
+// excluir um plantão = não haverá plantão nesse dia: some da agenda e das entradas; se veio de um plantão fixo, o dia fica marcado para não ser recriado
+function removeShift(id){const x=S.shifts.find(s=>s.id===id);if(!x)return null;S.shifts=S.shifts.filter(s=>s.id!==id);
+ if(x.rule){const r=S.rules.find(r=>r.id===x.rule);if(r&&!(r.skip||[]).includes(x.date))r.skip=[...(r.skip||[]),x.date]}return x}
 const dropRuleFrom=(id,from)=>{S.shifts=S.shifts.filter(x=>!(x.rule===id&&x.date>=from&&!shiftDone(x)))};
 const dropFutureRule=id=>{const t=today();S.shifts=S.shifts.filter(x=>!(x.rule===id&&x.date>=t&&!shiftDone(x)))};
 const BASE_PAR={odd:'2026-10-05',even:'2026-10-12'};
@@ -1347,7 +1350,7 @@ function cmdApply(o){
   case 'end_fixed_shift':{const r=S.rules.find(x=>x.id===o.id);dropRuleFrom(r.id,o.from);if(o.from<=r.start)S.rules=S.rules.filter(x=>x!==r);else r.until=o.from;break}
   case 'add_fixed_shift':{const w=o.weeks||'all',f=firstWd(o.from,+o.weekday,w);S.rules.push({id:nid(),par:w,start:f,t0:o.start,t1:o.end,kind:o.kind,upto:addD(f,-1)});break}
   case 'add_shift':S.shifts.push({id:nid(),date:o.date,start:o.start,end:o.end,kind:o.kind,v12:S.settings.rates[o.kind]});break;
-  case 'delete_shift':S.shifts=S.shifts.filter(x=>x.id!==o.id);break;
+  case 'delete_shift':removeShift(o.id);break;
   case 'add_task':S.tasks.push({id:nid(),title:String(o.title).slice(0,120),type:S.settings.types[o.type]&&o.type!=='plantao'?o.type:'pessoal',date:o.date,time:o.time||'',end:o.end||'',fixed:o.fixed!==false,done:false,created:Date.now()});break;
   case 'move_task':{const x=findTask(o.id);x.date=o.date;if(o.time)x.time=o.time;break}
   case 'delete_task':S.tasks=S.tasks.filter(x=>x.id!==o.id);break;
@@ -1722,7 +1725,7 @@ const ACT={
  delSeries:el=>{if(!armed(el))return;S.series=S.series.filter(x=>x.id!==el.dataset.id);save('series');closeSheet();toast('Série excluída.')},
  delTask:el=>{if(!armed(el))return;S.tasks=S.tasks.filter(x=>x.id!==el.dataset.id);S.notices=S.notices.filter(n=>n.tid!==el.dataset.id);save('tasks','notices');closeSheet();toast('Tarefa excluída.')},
  moveTask:el=>{const t=findTask(el.dataset.id);if(!t)return;t.date=el.dataset.ds;S.notices.forEach(n=>{if(n.tid===t.id)n.seen=true});save('tasks','notices');closeSheet();toast(`Movida para ${dLabel(t.date)}.`)},
- delShift:el=>{if(!armed(el))return;S.shifts=S.shifts.filter(x=>x.id!==el.dataset.id);save('shifts');closeSheet();toast('Plantão excluído.')},
+ delShift:el=>{if(!armed(el))return;const x=removeShift(el.dataset.id);save('shifts','rules');closeSheet();if(x){const m=ym(x.date);toast(`Plantão de ${dLabel(x.date)} excluído · −${brl(shiftValue(x))} nas entradas de ${MOL[+m.slice(5)-1]} (agora ${brl(monthMoney(m).inc)}).`)}},
  sfQuick:el=>{$('#sfStart').value=el.dataset.s;$('#sfEnd').value=el.dataset.e;calcShift()},
  ack:el=>{const n=S.notices.find(x=>x.id===el.dataset.id);if(n){n.seen=true;save('notices')}},
  swapDay:el=>{const n=S.notices.find(x=>x.id===el.dataset.id);if(!n)return;const t=findTask(n.tid);if(!t)return;
