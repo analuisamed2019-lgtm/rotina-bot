@@ -522,6 +522,9 @@ function fixShape(){
  for(const r of S.series)if(r.wk==='A'||r.wk==='B'){if(r.rule==='biweekly')r.rule=r.wk==='A'?'odd':'even';delete r.wk;ch=true}
  for(const r of S.rules)if(r.wk){r.par=r.wk==='A'?'odd':'even';delete r.wk;r.regen=true;ch=true}
  if(ch)needMig=true;
+ // plantão gerado por um plantão fixo já encerrado (ou num dia marcado como "sem plantão") não deve aparecer
+ const R=new Map(S.rules.map(r=>[r.id,r]));
+ S.shifts=S.shifts.filter(x=>{const r=x.rule&&R.get(x.rule);if(!r)return true;if(r.until&&x.date>=r.until)return false;if((r.skip||[]).includes(x.date))return false;return true});
  return ch;
 }
 fixShape();
@@ -529,16 +532,43 @@ fixShape();
 /* ---------- persistência: banco privado por usuário, com reserva no navegador ---------- */
 let db=null,uid=null,mode='loading',loaded={},lastRemote={},dirty=new Set(),writing={},saveT=null,booted=false;
 function save(...keys){keys.forEach(k=>dirty.add(k));saveLocal();clearTimeout(saveT);saveT=setTimeout(flush,500);render()}
+// gravação segura: antes de salvar, lê o que está no banco; se outro aparelho mudou, junta só as SUAS mudanças
+// (desde a última versão que este aparelho viu) por cima da versão atual, em vez de sobrescrever tudo
+const jeq=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+const isObj=x=>x&&typeof x==='object'&&!Array.isArray(x);
+const byId=a=>Array.isArray(a)&&a.length>0&&a.every(x=>isObj(x)&&x.id!=null);
+function merge3(base,mine,theirs){
+ if(jeq(mine,base))return theirs;if(jeq(theirs,base))return mine;
+ if(Array.isArray(mine)&&Array.isArray(theirs)&&Array.isArray(base)&&(byId(mine)||byId(theirs)||byId(base))){
+  const B=new Map(base.map(x=>[x.id,x])),M=new Map(mine.map(x=>[x.id,x])),out=[],seen=new Set();
+  for(const t of theirs){seen.add(t.id);const b=B.get(t.id),m=M.get(t.id);
+   if(m===undefined){if(b===undefined)out.push(t);continue}       // apagado por mim → fica apagado
+   if(b===undefined||!jeq(m,b))out.push(b&&isObj(m)&&isObj(t)?merge3(b,m,t):m);else out.push(t)}
+  for(const m of mine)if(!seen.has(m.id)){const b=B.get(m.id);if(b===undefined||!jeq(m,b))out.push(m)} // novo meu (ou mudei algo que o outro apagou)
+  return out}
+ if(Array.isArray(mine)&&Array.isArray(theirs)&&Array.isArray(base)){
+  const k=x=>JSON.stringify(x),bs=new Set(base.map(k)),ms=new Set(mine.map(k));
+  return theirs.filter(x=>!(bs.has(k(x))&&!ms.has(k(x)))).concat(mine.filter(x=>!bs.has(k(x))&&!theirs.some(t=>k(t)===k(x))))}
+ if(isObj(mine)&&isObj(theirs)&&isObj(base)){const o={};
+  for(const key of new Set([...Object.keys(base),...Object.keys(mine),...Object.keys(theirs)])){
+   const b=base[key],m=mine[key],t=theirs[key];
+   if(jeq(m,b)){if(t!==undefined)o[key]=t}else if(m===undefined){/* apagado por mim */}else o[key]=b===undefined||t===undefined?m:merge3(b,m,t)}
+  return o}
+ return mine}
 async function flush(){
- if(!db||!uid)return;
+ if(!db||!uid)return;let merged=false;
  for(const k of [...dirty]){
   if(writing[k]||!loaded[k])continue;
   dirty.delete(k);writing[k]=true;
-  const v=JSON.stringify(S[k]);
-  try{await db.doc(`data/users/${uid}/${k}`).set({v,at:Date.now()});lastRemote[k]=v;setSync('ok')}
+  try{
+   const ref=db.doc(`data/users/${uid}/${k}`);let val=S[k];
+   try{const snap=await ref.get();const rv=snap.exists?snap.data().v:null;
+    if(typeof rv==='string'&&lastRemote[k]!==undefined&&rv!==lastRemote[k]){val=merge3(JSON.parse(lastRemote[k]),S[k],JSON.parse(rv));S[k]=val;merged=true}}catch(e){}
+   const v=JSON.stringify(val);await ref.set({v,at:Date.now()});lastRemote[k]=v;setSync('ok')}
   catch(e){dirty.add(k);if(e&&e.code==='quota_exceeded')toast('Espaço do banco cheio. Exporte um backup e apague itens antigos.');setSync('err')}
   writing[k]=false;
  }
+ if(merged){fixShape();saveLocal();renderRemote()}
  if(dirty.size){clearTimeout(saveT);saveT=setTimeout(flush,1500)}
 }
 function mergeVal(remote,local){
