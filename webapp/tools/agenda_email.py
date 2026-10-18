@@ -68,7 +68,7 @@ def items_on(d, shifts, tasks, series, gev):
             kind = 'Porta' if s.get('kind') == 'porta' else 'Tutora'
             out.append((s['start'], s['end'], f'Plantão {kind}', 'plantao'))
     for t in tasks:
-        if t.get('date') == ds:
+        if t.get('date') == ds and t.get('type') != 'preparo':
             title = t['title']
             if t.get('type') == 'estudo':
                 title = 'Estudo: ' + title
@@ -78,7 +78,7 @@ def items_on(d, shifts, tasks, series, gev):
                 title += ' ✓'
             out.append((t.get('time') or '', t.get('end') or '', title, t.get('type') or 'pessoal'))
     for r in series:
-        if occurs(r, d):
+        if occurs(r, d) and r.get('type') != 'preparo':
             out.append((r.get('time') or '', r.get('end') or '', r['title'], r.get('type') or 'pessoal'))
     med = [e for e in gev if e['date'] == ds and e.get('med')]
     if med:

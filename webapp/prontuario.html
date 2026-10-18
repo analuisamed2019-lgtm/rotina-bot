@@ -481,7 +481,7 @@ const IC={
 const ico=(n,w=2)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 
 /* ---------- estado ---------- */
-const DEF_TYPES={plantao:{n:'Plantão',c:'#e5484d'},estudo:{n:'Estudo',c:'#3b82f6'},academia:{n:'Academia',c:'#f08c2e'},yoga:{n:'Yoga',c:'#30a46c'},pessoal:{n:'Pessoal',c:'#8e4ec6'},lembrete:{n:'Lembrete',c:'#c99a06'}};
+const DEF_TYPES={plantao:{n:'Plantão',c:'#e5484d'},estudo:{n:'Estudo',c:'#3b82f6'},academia:{n:'Academia',c:'#f08c2e'},yoga:{n:'Yoga',c:'#30a46c'},pessoal:{n:'Pessoal',c:'#8e4ec6'},lembrete:{n:'Lembrete',c:'#c99a06'},preparo:{n:'Preparo/deslocamento',c:'#9aa5ad'}};
 // Treinos alternam por semana ímpar/par do calendário (numeração ISO, semana começa na segunda).
 const SEED_SERIES=[
  {id:'wA1',title:'Academia',type:'academia',time:'18:30',start:'2026-10-05',rule:'odd',skip:[],done:[]},
@@ -703,9 +703,20 @@ function itemsOn(ds){
  out.sort((a,b)=>(a.time||'00:00').localeCompare(b.time||'00:00'));
  return memo['i'+ds]=out;
 }
-const countsLoad=it=>it.type!=='plantao'&&it.type!=='academia'&&it.type!=='yoga'&&it.type!=='lembrete';
+// blocos fixos da rotina (estudo diário, preparo/deslocamento) não contam como tarefa extra
+const countsLoad=it=>it.type!=='plantao'&&it.type!=='academia'&&it.type!=='yoga'&&it.type!=='lembrete'&&it.type!=='preparo'&&!(it.o&&it.o.block);
 const load=ds=>itemsOn(ds).filter(countsLoad).length;
-const studiesOn=ds=>itemsOn(ds).filter(i=>i.type==='estudo').length;
+const studiesOn=ds=>itemsOn(ds).filter(i=>i.type==='estudo'&&!(i.o&&i.o.block)).length;
+// janelas livres de verdade: buracos de 1 h ou mais entre 8h e 20:30, com 1 h de folga antes e depois de plantão
+function freeWindows(ds){
+ if(longShiftOn(ds))return [];
+ const b=busyOn(ds);for(const x of S.shifts)if(x.date===ds)b.push({a:toMin(x.start)-60,b:toMin(x.end)+60});
+ b.sort((x,y)=>x.a-y.a);const out=[];let cur=8*60;const end=20*60+30;
+ for(const x of b){if(x.a-cur>=60)out.push([cur,Math.min(x.a,end)]);cur=Math.max(cur,x.b);if(cur>=end)break}
+ if(end-cur>=60)out.push([cur,end]);
+ const f=m=>hm(pad(Math.floor(m/60))+':'+pad(m%60));
+ return out.filter(w=>w[1]-w[0]>=60).map(w=>f(w[0])+'–'+f(w[1])+(w[0]<=12*60+30&&w[1]>=13*60+30?' (almoço)':''));
+}
 const longShiftOn=ds=>S.shifts.some(s=>s.date===ds&&shiftHours(s)>=10);
 const anyShiftOn=ds=>S.shifts.some(s=>s.date===ds);
 const prevShift=ds=>{const p=addD(ds,-1);const l=S.shifts.filter(s=>s.date===p);if(!l.length)return null;return l.some(shiftNight)?'night':'day'};
@@ -1619,6 +1630,7 @@ function dayPanel(ds){
  }).join('');
  return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>${weekLbl(ds)}</span></div>
  ${its.length?`<ul class="lst tl">${rows}</ul>`:'<p class="empty">Dia livre, nada agendado.</p>'}
+ ${its.length&&ds>=today()?(()=>{const w=freeWindows(ds);return `<p class="small" style="margin:10px 0 0"><b>Livre de verdade:</b> ${w.length?w.join(' · '):'<span class="muted">nada (só transições e descanso)</span>'}</p>`})():''}
  <div class="btns"><button class="btn sm pri" data-a="newTask" data-ds="${ds}">+ Tarefa</button><button class="btn sm" data-a="newShift" data-ds="${ds}">+ Plantão</button><button class="btn sm" data-a="goWeek" data-ds="${ds}">Ver na semana</button></div>`;
 }
 function daySheet(ds){MV.sel=ds;sheet(cap1(dLong(ds)),dayPanel(ds),true,'day',`<button class="icon-btn" data-a="dayNav" data-ds="${addD(ds,-1)}" aria-label="Dia anterior">${ico('l')}</button><button class="icon-btn" data-a="dayNav" data-ds="${addD(ds,1)}" aria-label="Próximo dia">${ico('r')}</button>`);liveSheet=()=>daySheet(ds)}
