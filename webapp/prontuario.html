@@ -481,7 +481,7 @@ const IC={
 const ico=(n,w=2)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 
 /* ---------- estado ---------- */
-const DEF_TYPES={plantao:{n:'Plantão',c:'#e5484d'},estudo:{n:'Estudo',c:'#3b82f6'},academia:{n:'Academia',c:'#f08c2e'},yoga:{n:'Yoga',c:'#30a46c'},pessoal:{n:'Pessoal',c:'#8e4ec6'},lembrete:{n:'Lembrete',c:'#c99a06'},preparo:{n:'Preparo/deslocamento',c:'#9aa5ad'}};
+const DEF_TYPES={plantao:{n:'Plantão',c:'#e5484d'},estudo:{n:'Estudo',c:'#3b82f6'},academia:{n:'Academia',c:'#f08c2e'},yoga:{n:'Yoga',c:'#30a46c'},pessoal:{n:'Pessoal',c:'#8e4ec6'},lembrete:{n:'Lembrete',c:'#c99a06'}};
 // Treinos alternam por semana ímpar/par do calendário (numeração ISO, semana começa na segunda).
 const SEED_SERIES=[
  {id:'wA1',title:'Academia',type:'academia',time:'18:30',start:'2026-10-05',rule:'odd',skip:[],done:[]},
@@ -704,18 +704,22 @@ function itemsOn(ds){
  return memo['i'+ds]=out;
 }
 // blocos fixos da rotina (estudo diário, preparo/deslocamento) não contam como tarefa extra
-const countsLoad=it=>it.type!=='plantao'&&it.type!=='academia'&&it.type!=='yoga'&&it.type!=='lembrete'&&it.type!=='preparo'&&!(it.o&&it.o.block);
+const countsLoad=it=>it.type!=='plantao'&&it.type!=='academia'&&it.type!=='yoga'&&it.type!=='lembrete'&&!(it.o&&it.o.block);
 const load=ds=>itemsOn(ds).filter(countsLoad).length;
 const studiesOn=ds=>itemsOn(ds).filter(i=>i.type==='estudo'&&!(i.o&&i.o.block)).length;
-// janelas livres de verdade: buracos de 1 h ou mais entre 8h e 20:30, com 1 h de folga antes e depois de plantão
+// janelas livres de verdade: buracos de 1 h ou mais entre 8h e 19:30. Já descontam o preparo/deslocamento
+// de treinos e plantões (busyOn) e o almoço/descanso entre os blocos de estudo, sem escrever isso na agenda.
 function freeWindows(ds){
  if(longShiftOn(ds))return [];
- const b=busyOn(ds);for(const x of S.shifts)if(x.date===ds)b.push({a:toMin(x.start)-60,b:toMin(x.end)+60});
- b.sort((x,y)=>x.a-y.a);const out=[];let cur=8*60;const end=20*60+30;
+ const b=busyOn(ds);
+ const bl=itemsOn(ds).filter(i=>i.o&&i.o.block&&i.time).map(i=>({a:toMin(i.time),b:toMin(i.o.end||i.time)+(i.o.end?0:60)})).sort((x,y)=>x.a-y.a);
+ let lunch=false;for(let i=1;i<bl.length;i++)if(bl[i].a-bl[i-1].b<=180){b.push({a:bl[i-1].b,b:bl[i].a});if(bl[i-1].b<14*60&&bl[i].a>11*60)lunch=true}
+ if(bl.length&&!lunch)b.push({a:12*60,b:13*60});
+ b.sort((x,y)=>x.a-y.a);const out=[];let cur=8*60;const end=19*60+30; // depois disso: jantar e desacelerar para dormir
  for(const x of b){if(x.a-cur>=60)out.push([cur,Math.min(x.a,end)]);cur=Math.max(cur,x.b);if(cur>=end)break}
  if(end-cur>=60)out.push([cur,end]);
  const f=m=>hm(pad(Math.floor(m/60))+':'+pad(m%60));
- return out.filter(w=>w[1]-w[0]>=60).map(w=>f(w[0])+'–'+f(w[1])+(w[0]<=12*60+30&&w[1]>=13*60+30?' (almoço)':''));
+ return out.filter(w=>w[1]-w[0]>=60).map(w=>f(w[0])+'–'+f(w[1]));
 }
 const longShiftOn=ds=>S.shifts.some(s=>s.date===ds&&shiftHours(s)>=10);
 const anyShiftOn=ds=>S.shifts.some(s=>s.date===ds);
@@ -1191,7 +1195,11 @@ function busyOn(ds,skipId){const out=[];
   else if(x.date===addD(ds,-1)&&shiftCross(x))out.push({a:0,b:toMin(x.end),label:`plantão noturno até ${hm(x.end)}`})}
  for(const it of itemsOn(ds)){if(it.k==='gcal'){for(const e of it.o.evs)if(e.time)out.push({a:toMin(e.time),b:e.end&&e.end>e.time?toMin(e.end):toMin(e.time)+60,label:`${it.o.med?'Medway – ':''}${e.title} ${hm(e.time)}${e.end?'–'+hm(e.end):''}`});continue}
   if(it.k==='shift'||!it.time||it.id===skipId)continue;const a=toMin(it.time),e=it.o.end&&it.o.end>it.time?toMin(it.o.end):a+60;
-  out.push({a,b:e,label:`${it.type==='estudo'?'Estudo':it.title} ${hm(it.time)}${it.o.end?'–'+hm(it.o.end):''}`})}
+  out.push({a,b:e,label:`${it.type==='estudo'?'Estudo':it.title} ${hm(it.time)}${it.o.end?'–'+hm(it.o.end):''}`});
+  // tempo invisível de lanche, troca de roupa, ida, volta e banho (não aparece na agenda)
+  if(it.type==='academia')out.push({a:a-60,b:a,label:`preparo e ida para ${it.title.split(' (')[0]}`},{a:e,b:e+60,label:`volta e banho depois de ${it.title.split(' (')[0]}`});
+  if(it.type==='yoga')out.push({a:a-30,b:a,label:'ida para o yoga'},{a:e,b:e+20,label:'volta do yoga'})}
+ for(const x of S.shifts)if(x.date===ds&&x.id!==skipId){const a=toMin(x.start);let b=toMin(x.end);if(b<=a)b+=1440;out.push({a:a-60,b:a,label:'ida para o plantão'},{a:b,b:b+60,label:'volta do plantão'})}
  return out}
 function conflictsFor(ds,time,end,skipId){if(!time)return [];const a=toMin(time),b=end&&end>time?toMin(end):a+60;return busyOn(ds,skipId).filter(x=>a<x.b&&b>x.a).map(x=>x.label)}
 function quickConflicts(q){const c=conflictsFor(q.date,q.time,q.end);return c.length?`coincide com ${c.join(' e ')}`:''}
@@ -1472,7 +1480,7 @@ function aiContext(){
  for(let i=0;i<14;i++){
   const ds=addD(t,i);const its=itemsOn(ds);
   const desc=its.map(it=>{if(it.k==='shift'){const s=it.o;return `PLANTÃO ${kindName(s.kind)} ${s.start}–${s.end} (${shiftHours(s)} h${shiftNight(s)?', noturno':''})`}return `${it.time?it.time+' ':''}${T(it.type).n}${it.type==='estudo'||it.type==='pessoal'?': '+it.title:''}${it.done?' [feito]':''}${it.o.moved?` [remanejada ${it.o.moved}x]`:''}`}).join('; ')||'livre';
-  L.push(`- ${dLabel(ds)} ${ds}${prevShift(ds)==='night'?' (pós-plantão noturno)':''}: energia ${f1(predict(ds))}, capacidade ${capacity(ds)}, carga ${load(ds)} → ${desc}`);
+  L.push(`- ${dLabel(ds)} ${ds}${prevShift(ds)==='night'?' (pós-plantão noturno)':''}: energia ${f1(predict(ds))}, capacidade ${capacity(ds)}, carga ${load(ds)} → ${desc}${longShiftOn(ds)?'':` · janelas realmente livres: ${freeWindows(ds).join(', ')||'nenhuma'}`}`);
  }
  L.push('\nENERGIA DOS ÚLTIMOS 14 DIAS:');
  let any=false;for(let i=13;i>=0;i--){const ds=addD(t,-i);const e=S.energy[ds];if(e&&(e.m||e.n)){any=true;L.push(`- ${dLabel(ds)}: manhã ${e.m||'–'}, noite ${e.n||'–'}${e.tags?.length?', pesou: '+e.tags.join(', '):''}${anyShiftOn(ds)?' (dia de plantão)':''}`)}}
