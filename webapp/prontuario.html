@@ -1568,6 +1568,7 @@ function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoa
   <label class="field"><span>${mode==='editSeries'?'Começa em':'Data'}</span><input class="in" type="date" id="tfDate" value="${dt}" required></label></div>
   <div class="grid2"><label class="field"><span>Início (opcional)</span><input class="in" type="time" id="tfTime" value="${o.time||''}" data-tfc></label><label class="field"><span>Término (opcional)</span><input class="in" type="time" id="tfEnd" value="${o.end||''}" data-tfc></label></div>
   <p class="tiny" id="tfConf" style="color:var(--warn);margin:0"></p>
+  <label class="field"><span>Notas (opcional)</span><textarea class="in" id="tfNotes" rows="3" placeholder="Detalhes, endereço, o que levar, links…">${h(o.notes||'')}</textarea></label>
   <div class="grid2">${showRec?`<label class="field"><span>Repetição</span><select class="in" id="tfRec">${Object.entries(REC).filter(([k])=>mode==='new'||k!=='none').map(([k,l])=>`<option value="${k}" ${(ser?ser.rule:'none')===k?'selected':''}>${l}</option>`).join('')}</select></label>`:'<span></span>'}</div>
   ${mode==='new'&&capacity(dt)===0?'<p class="tiny" style="color:var(--warn);margin:0">Esse dia não tem espaço (plantão longo ou energia baixa prevista).</p>':''}
   <div class="btns"><button class="btn pri">Salvar</button><button type="button" class="btn" data-a="closeSheet">Cancelar</button></div></form>`);
@@ -1584,6 +1585,7 @@ function shiftForm(s,ds){
   <label class="field"><span>Fim</span><input class="in" type="time" id="sfEnd" value="${o.end}" required data-calc></label></div>
   <div class="seg" role="group" aria-label="Atalhos">${[['07:00','19:00','12 h dia'],['19:00','07:00','12 h noite'],['07:00','13:00','6 h'],['07:00','07:00','24 h']].map(([a,b,l])=>`<button type="button" data-a="sfQuick" data-s="${a}" data-e="${b}">${l}</button>`).join('')}</div>
   ${s?'':`<label class="field"><span>Repetir nas próximas semanas</span><select class="in" id="sfRep">${[0,1,2,3,4,6,8,12].map(n=>`<option value="${n}">${n===0?'Não repetir':`Mais ${n} semana${n>1?'s':''}`}</option>`).join('')}</select></label>`}
+  <label class="field"><span>Notas (opcional)</span><textarea class="in" id="sfNotes" rows="2" placeholder="Ex.: troca com colega, setor, observações">${h(o.notes||'')}</textarea></label>
   <p class="small" id="sfCalc" style="margin:0"></p>${s&&s.rule?'<p class="tiny faint" style="margin:0">Faz parte de um plantão fixo. Editar aqui muda só este dia; para mudar todos, use Ajustes → Plantões fixos.</p>':''}
   <div class="btns"><button class="btn pri">Salvar</button>${s?`<button type="button" class="btn danger" data-a="delShift" data-id="${s.id}">Excluir</button>`:''}<button type="button" class="btn" data-a="closeSheet">Cancelar</button></div></form>`);
  calcShift();
@@ -1608,7 +1610,7 @@ function dayPanel(ds){
  const rows=its.map(it=>{
   const tm=it.k==='shift'?`${hm(it.o.start)}–${hm(it.o.end)}`:it.time?hm(it.time)+(it.o.end&&it.o.end>it.time?'–'+hm(it.o.end):''):'dia todo';
   const title=it.k==='shift'?`Plantão ${kindName(it.o.kind)}`:it.type==='estudo'?`Estudo · ${it.title}`:it.title;
-  const sub=it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`;
+  const hasN=it.o&&it.o.notes&&it.k!=='gcal';const sub=(hasN?'com notas · ':'')+(it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`);
   return `<li><span class="tm">${tm}</span><span class="dot" style="background:${T(it.type).c}"></span><button class="grow" data-a="open" data-k="${it.k}" data-id="${it.id}" data-day="${ds}"><b>${h(title)}</b><span class="tiny faint">${h(sub)}</span></button>${it.k!=='shift'?`<button class="btn sm ${it.done?'pri':''}" data-a="toggle" data-k="${it.k}" data-id="${it.id}" data-day="${ds}" aria-pressed="${it.done}">${it.done?'Feito':'Concluir'}</button>`:''}</li>`;
  }).join('');
  return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>${weekLbl(ds)}</span></div>
@@ -1657,6 +1659,7 @@ function openItem(k,id,day){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
   sheet(T(t.type).n,`<div class="det"><span class="t">${h(t.title)}</span><span class="small muted">${dLong(t.date)}${t.time?' · '+hm(t.time)+(t.end?'–'+hm(t.end):''):''}</span>${t.fixed?'<span class="small"><span class="pill">compromisso fixo · não é remanejado</span></span>':''}${t.moved?`<span class="small"><span class="pill ${t.moved>=3?'warn':''}">remanejada ${t.moved}×</span> <span class="faint">original: ${dLabel(t.orig||t.date)}</span></span>`:''}</div>
   <div class="btns"><button class="btn pri" data-a="toggle" data-k="task" data-id="${t.id}" data-close="1">${t.done?'Desmarcar':'Concluir'}</button><button class="btn" data-a="editTask" data-id="${t.id}">Editar</button></div>
+  <div class="sh-sec"><h4>Notas</h4><textarea class="in" rows="4" data-notes="task" data-id="${t.id}" placeholder="Escreva aqui o que precisa lembrar sobre esta atividade…" aria-label="Notas">${h(t.notes||'')}</textarea><span class="tiny faint">Salva sozinho enquanto você escreve.</span></div>
   <div class="sh-sec"><h4>Mover para</h4>${moveSugs(t.date,'moveTask',t.id)}<input class="in" type="date" id="mvDate" value="${t.date}" data-a2="moveTaskInput" data-id="${t.id}" aria-label="Escolher outra data"></div>
   <div class="btns"><button class="btn danger" data-a="delTask" data-id="${t.id}">Excluir</button></div>`);
   return;
@@ -1665,6 +1668,7 @@ function openItem(k,id,day){
  sheet(T(r.type).n,`<div class="det"><span class="t">${h(r.title)}</span><span class="small muted">${dLong(day)}${r.time?' · '+hm(r.time)+(r.end?'–'+hm(r.end):''):''}</span><span class="small faint">${REC[r.rule]}</span></div>
  <div class="btns"><button class="btn pri" data-a="toggle" data-k="ser" data-id="${r.id}" data-day="${day}" data-close="1">${done?'Desmarcar':'Concluir'}</button><button class="btn" data-a="editOcc" data-id="${r.id}" data-day="${day}">Editar / mover este dia</button></div>
  <div class="btns"><button class="btn" data-a="skipOcc" data-id="${r.id}" data-day="${day}">Pular só este dia</button><button class="btn" data-a="editSeries" data-id="${r.id}">Editar a série</button></div>
+ <div class="sh-sec"><h4>Notas</h4><textarea class="in" rows="4" data-notes="ser" data-id="${r.id}" placeholder="Escreva aqui o que precisa lembrar sobre esta atividade…" aria-label="Notas">${h(r.notes||'')}</textarea><span class="tiny faint">Vale para todos os dias desta repetição. Salva sozinho.</span></div>
  <div class="sh-sec"><h4>Excluir</h4><div class="btns"><button class="btn danger" data-a="endSeries" data-id="${r.id}" data-day="${day}">Este e os próximos</button><button class="btn danger" data-a="delSeries" data-id="${r.id}">Toda a série</button></div></div>`);
 }
 function moveSugs(from,act,id){
@@ -1823,6 +1827,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden
 document.addEventListener('input',e=>{
  const el=e.target;
  if(el.hasAttribute('data-d')&&el.id)D[el.id]=el.value;
+ if(el.dataset.notes){const k=el.dataset.notes,o=k==='task'?findTask(el.dataset.id):S.series.find(x=>x.id===el.dataset.id);if(o){o.notes=el.value;clearTimeout(window.__nt);window.__nt=setTimeout(()=>save(k==='task'?'tasks':'series'),700)}}
  if(el.id==='qkTxt'){const pv=document.getElementById('qkPrev');if(pv)pv.innerHTML=quickPrevHTML(el.value)}
  if(el.hasAttribute('data-calc'))calcShift();
  if(el.hasAttribute('data-tfc')||el.id==='tfDate')tfConfUpdate();
@@ -1846,21 +1851,22 @@ const FORMS={
  task:f=>{
   const mode=f.dataset.mode,title=$('#tfTitle').value.trim(),type=$('#tfType').value,date=$('#tfDate').value,time=$('#tfTime').value,rec=$('#tfRec')?.value||'none';let end=$('#tfEnd').value;if(!time||end<=time)end='';
   if(!title||!date)return;
+  const notes=($('#tfNotes')?.value||'').trim();
   const skipC=mode==='editTask'||mode==='editSeries'?f.dataset.id:null;const cf=conflictsFor(date,time,end,skipC);const warnC=cf.length?` ⚠ Coincide com ${cf.join(' e ')}.`:'';
   if(mode==='new'){
-   if(rec==='none')S.tasks.push({id:nid(),title,type,date,time,end,done:false,created:Date.now()});
-   else S.series.push({id:nid(),title,type,time,end,start:date,rule:rec,skip:[],done:[]});
+   if(rec==='none')S.tasks.push({id:nid(),title,type,date,time,end,notes,done:false,created:Date.now()});
+   else S.series.push({id:nid(),title,type,time,end,notes,start:date,rule:rec,skip:[],done:[]});
    save(rec==='none'?'tasks':'series');closeSheet();
    if(rec==='none'&&type!=='academia'&&type!=='yoga'){memo={};const c=capacity(date),l=load(date);if(l>c)toast((c===0?`${dLabel(date)} não tem espaço previsto. Considere outro dia.`:`${dLabel(date)} passou do limite (${l} de ${c}).`)+warnC);else toast('Adicionado.'+warnC)}else toast('Adicionado.'+warnC);
-  }else if(mode==='editTask'){const t=findTask(f.dataset.id);if(!t)return;Object.assign(t,{title,type,date,time,end});save('tasks');closeSheet();if(warnC)toast('Salvo.'+warnC)}
-  else if(mode==='editSeries'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;Object.assign(r,{title,type,time,end,start:date,rule:rec});save('series');closeSheet();toast('Série atualizada.'+warnC)}
-  else if(mode==='editOcc'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;r.skip=[...(r.skip||[]),f.dataset.day];S.tasks.push({id:nid(),title,type,date,time,end,done:(r.done||[]).includes(f.dataset.day),created:Date.now(),fromSeries:r.id});save('series','tasks');closeSheet();toast('Só este dia foi alterado.'+warnC)}
+  }else if(mode==='editTask'){const t=findTask(f.dataset.id);if(!t)return;Object.assign(t,{title,type,date,time,end,notes});save('tasks');closeSheet();if(warnC)toast('Salvo.'+warnC)}
+  else if(mode==='editSeries'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;Object.assign(r,{title,type,time,end,notes,start:date,rule:rec});save('series');closeSheet();toast('Série atualizada.'+warnC)}
+  else if(mode==='editOcc'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;r.skip=[...(r.skip||[]),f.dataset.day];S.tasks.push({id:nid(),title,type,date,time,end,notes,done:(r.done||[]).includes(f.dataset.day),created:Date.now(),fromSeries:r.id});save('series','tasks');closeSheet();toast('Só este dia foi alterado.'+warnC)}
  },
  shift:f=>{
   const id=f.dataset.id,date=$('#sfDate').value,start=$('#sfStart').value,end=$('#sfEnd').value,kind=$('#sfKind').value;
   if(!date||!start||!end)return;
-  if(id){const s=S.shifts.find(x=>x.id===id);if(!s)return;if(s.kind!==kind)s.v12=S.settings.rates[kind];Object.assign(s,{date,start,end,kind})}
-  else{const rep=+($('#sfRep')?.value||0);for(let i=0;i<=rep;i++)S.shifts.push({id:nid(),date:addD(date,7*i),start,end,kind,v12:S.settings.rates[kind]})}
+  if(id){const s=S.shifts.find(x=>x.id===id);if(!s)return;if(s.kind!==kind)s.v12=S.settings.rates[kind];Object.assign(s,{date,start,end,kind,notes:($('#sfNotes')?.value||'').trim()})}
+  else{const rep=+($('#sfRep')?.value||0);for(let i=0;i<=rep;i++)S.shifts.push({id:nid(),date:addD(date,7*i),start,end,kind,notes:($('#sfNotes')?.value||'').trim(),v12:S.settings.rates[kind]})}
   save('shifts');closeSheet();toast(id?'Plantão atualizado.':'Plantão salvo.');
  },
  rule:f=>{
