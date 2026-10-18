@@ -406,6 +406,10 @@ details.grp[open] summary::after{transform:rotate(-90deg)}
 .shc button.on.past{opacity:.55}
 .shc button small{font-size:9.5px;font-weight:700;color:var(--sh);letter-spacing:-.01em;white-space:nowrap}
 .shc button.today span{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:2px}
+.att{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;font-size:14px;min-width:0}
+.att a{flex:1;min-width:0;color:var(--fg);text-decoration:none;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.att a:hover{text-decoration:underline}
+.att .tag{font-size:10.5px;font-weight:700;color:var(--bad);border:1px solid currentColor;border-radius:4px;padding:0 4px}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(var(--tab-h) + env(safe-area-inset-bottom,0px) + 84px);z-index:60;background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:14px;font-weight:600;max-width:calc(100vw - 32px);box-shadow:0 8px 24px rgba(0,0,0,.2)}
 @media (min-width:1100px){ .toast{bottom:28px} }
 .sugs{display:flex;flex-wrap:wrap;gap:6px}
@@ -1610,7 +1614,7 @@ function dayPanel(ds){
  const rows=its.map(it=>{
   const tm=it.k==='shift'?`${hm(it.o.start)}–${hm(it.o.end)}`:it.time?hm(it.time)+(it.o.end&&it.o.end>it.time?'–'+hm(it.o.end):''):'dia todo';
   const title=it.k==='shift'?`Plantão ${kindName(it.o.kind)}`:it.type==='estudo'?`Estudo · ${it.title}`:it.title;
-  const hasN=it.o&&it.o.notes&&it.k!=='gcal';const sub=(hasN?'com notas · ':'')+(it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`);
+  const hasN=it.o&&(it.o.notes||(it.o.files||[]).length)&&it.k!=='gcal';const sub=(hasN?'com notas · ':'')+(it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`);
   return `<li><span class="tm">${tm}</span><span class="dot" style="background:${T(it.type).c}"></span><button class="grow" data-a="open" data-k="${it.k}" data-id="${it.id}" data-day="${ds}"><b>${h(title)}</b><span class="tiny faint">${h(sub)}</span></button>${it.k!=='shift'?`<button class="btn sm ${it.done?'pri':''}" data-a="toggle" data-k="${it.k}" data-id="${it.id}" data-day="${ds}" aria-pressed="${it.done}">${it.done?'Feito':'Concluir'}</button>`:''}</li>`;
  }).join('');
  return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>${weekLbl(ds)}</span></div>
@@ -1659,7 +1663,7 @@ function openItem(k,id,day){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
   sheet(T(t.type).n,`<div class="det"><span class="t">${h(t.title)}</span><span class="small muted">${dLong(t.date)}${t.time?' · '+hm(t.time)+(t.end?'–'+hm(t.end):''):''}</span>${t.fixed?'<span class="small"><span class="pill">compromisso fixo · não é remanejado</span></span>':''}${t.moved?`<span class="small"><span class="pill ${t.moved>=3?'warn':''}">remanejada ${t.moved}×</span> <span class="faint">original: ${dLabel(t.orig||t.date)}</span></span>`:''}</div>
   <div class="btns"><button class="btn pri" data-a="toggle" data-k="task" data-id="${t.id}" data-close="1">${t.done?'Desmarcar':'Concluir'}</button><button class="btn" data-a="editTask" data-id="${t.id}">Editar</button></div>
-  <div class="sh-sec"><h4>Notas</h4><textarea class="in" rows="4" data-notes="task" data-id="${t.id}" placeholder="Escreva aqui o que precisa lembrar sobre esta atividade…" aria-label="Notas">${h(t.notes||'')}</textarea><span class="tiny faint">Salva sozinho enquanto você escreve.</span></div>
+  <div class="sh-sec"><h4>Notas</h4><textarea class="in" rows="4" data-notes="task" data-id="${t.id}" placeholder="Escreva aqui o que precisa lembrar sobre esta atividade…" aria-label="Notas">${h(t.notes||'')}</textarea><span class="tiny faint">Salva sozinho enquanto você escreve.</span>${filesHTML('task',t,'')}</div>
   <div class="sh-sec"><h4>Mover para</h4>${moveSugs(t.date,'moveTask',t.id)}<input class="in" type="date" id="mvDate" value="${t.date}" data-a2="moveTaskInput" data-id="${t.id}" aria-label="Escolher outra data"></div>
   <div class="btns"><button class="btn danger" data-a="delTask" data-id="${t.id}">Excluir</button></div>`);
   return;
@@ -1668,7 +1672,7 @@ function openItem(k,id,day){
  sheet(T(r.type).n,`<div class="det"><span class="t">${h(r.title)}</span><span class="small muted">${dLong(day)}${r.time?' · '+hm(r.time)+(r.end?'–'+hm(r.end):''):''}</span><span class="small faint">${REC[r.rule]}</span></div>
  <div class="btns"><button class="btn pri" data-a="toggle" data-k="ser" data-id="${r.id}" data-day="${day}" data-close="1">${done?'Desmarcar':'Concluir'}</button><button class="btn" data-a="editOcc" data-id="${r.id}" data-day="${day}">Editar / mover este dia</button></div>
  <div class="btns"><button class="btn" data-a="skipOcc" data-id="${r.id}" data-day="${day}">Pular só este dia</button><button class="btn" data-a="editSeries" data-id="${r.id}">Editar a série</button></div>
- <div class="sh-sec"><h4>Notas</h4><textarea class="in" rows="4" data-notes="ser" data-id="${r.id}" placeholder="Escreva aqui o que precisa lembrar sobre esta atividade…" aria-label="Notas">${h(r.notes||'')}</textarea><span class="tiny faint">Vale para todos os dias desta repetição. Salva sozinho.</span></div>
+ <div class="sh-sec"><h4>Notas</h4><textarea class="in" rows="4" data-notes="ser" data-id="${r.id}" placeholder="Escreva aqui o que precisa lembrar sobre esta atividade…" aria-label="Notas">${h(r.notes||'')}</textarea><span class="tiny faint">Vale para todos os dias desta repetição. Salva sozinho.</span>${filesHTML('ser',r,day)}</div>
  <div class="sh-sec"><h4>Excluir</h4><div class="btns"><button class="btn danger" data-a="endSeries" data-id="${r.id}" data-day="${day}">Este e os próximos</button><button class="btn danger" data-a="delSeries" data-id="${r.id}">Toda a série</button></div></div>`);
 }
 function moveSugs(from,act,id){
@@ -1676,6 +1680,24 @@ function moveSugs(from,act,id){
  for(let i=0;i<10&&o.length<5;i++){const ds=addD(t,i);if(ds===from)continue;const c=capacity(ds),l=load(ds);if(c-l>0)o.push(`<button class="sug" data-a="${act}" data-id="${id}" data-ds="${ds}">${dLabel(ds)}<small>cabe${c-l>1?'m':''} ${c-l} · energia ${f1(predict(ds))}</small></button>`)}
  return o.length?`<div class="sugs">${o.join('')}</div>`:'<p class="tiny faint" style="margin:0">Sem dias com folga nos próximos 10 dias.</p>';
 }
+/* ---------- anexos (PDF) nas notas de tarefas e repetições ---------- */
+let assetsNS=undefined;
+async function getAssets(){if(assetsNS!==undefined)return assetsNS;try{assetsNS=await window.claude?.use?.('assets')||null}catch(e){assetsNS=null}return assetsNS}
+const kb=n=>n>=1048576?(n/1048576).toFixed(1).replace('.',',')+' MB':Math.max(1,Math.round(n/1024))+' KB';
+function filesHTML(k,o,day){const fs=o.files||[];
+ return `<div class="sh-sec" style="gap:6px">${fs.map(f=>`<div class="att"><span class="tag">PDF</span><a href="/_blob/${h(f.id)}" target="_blank" rel="noopener">${h(f.name)}</a><span class="tiny faint">${kb(f.size||0)}</span><button class="btn sm danger" data-a="attDel" data-k="${k}" data-id="${o.id}" data-f="${h(f.id)}" data-day="${day||''}">Remover</button></div>`).join('')}
+ <div><label class="btn sm" for="att-${o.id}">+ Anexar PDF</label><input type="file" id="att-${o.id}" accept="application/pdf,.pdf" multiple hidden data-attach="${k}" data-id="${o.id}" data-day="${day||''}"></div></div>`}
+const attObj=(k,id)=>k==='task'?findTask(id):S.series.find(x=>x.id===id);
+const reopenItem=(k,id,day)=>{if($('#sheet').hidden)return;openItem(k,id,day||undefined)};
+async function attachFiles(el){const k=el.dataset.attach,id=el.dataset.id,day=el.dataset.day,o=attObj(k,id);if(!o)return;
+ const A=await getAssets();if(!A){toast('Anexos não estão disponíveis nesta visualização. Abra o app pelo claude.ai.');return}
+ const files=[...el.files];el.value='';let n=0;
+ for(const f of files){if(!(f.type==='application/pdf'||/\.pdf$/i.test(f.name))){toast(`${f.name} não é PDF.`);continue}
+  if(f.size>20*1048576){toast(`${f.name} passa de 20 MB.`);continue}
+  toast(`Enviando ${f.name}…`);
+  try{const r=await A.upload(f,{type:'application/pdf'});o.files=[...(o.files||[]),{id:r.id,name:f.name,size:r.sizeBytes||f.size}];n++}
+  catch(e){toast(e&&e.code==='too_large'?`${f.name} é grande demais (máx. 20 MB).`:e&&e.code==='quota_or_state'?'Sem espaço para anexos agora.':`Não consegui anexar ${f.name}.`)}}
+ if(n){save(k==='task'?'tasks':'series');toast(n===1?'PDF anexado.':`${n} PDFs anexados.`);reopenItem(k,id,day)}}
 function noteSheet(n){
  sheet(n?'Nota':'Nova nota',`<form class="sh-b" data-f="note" data-id="${n?n.id:''}"><textarea class="in" id="ntText" rows="6" required>${h(n?n.text:'')}</textarea>${n?`<span class="tiny faint">Criada ${noteTime(n.ts)}${n.upd!==n.ts?' · editada '+noteTime(n.upd):''}</span>`:''}
  <div class="btns"><button class="btn pri">Salvar</button>${n?`<button type="button" class="btn" data-a="notePin" data-id="${n.id}">${n.pin?'Desafixar':'Fixar no topo'}</button><button type="button" class="btn danger" data-a="noteDel" data-id="${n.id}">Excluir</button>`:''}</div></form>`);
@@ -1742,6 +1764,8 @@ const ACT={
   for(const o of sel){if(!cmdDescribe(o))continue;try{cmdApply(o);n++}catch(e){}}
   genShifts();CMD=null;AI.cmd=null;D.aiCmdTxt='';save('rules','shifts','series','tasks','settings');toast(`${n} mudança${n===1?'':'s'} aplicada${n===1?'':'s'}.`)},
  cmdCancel:()=>{CMD=null;AI.cmd=null;render()},
+ attDel:async el=>{if(!armed(el))return;const {k,id,f,day}=el.dataset,o=attObj(k,id);if(!o)return;
+  o.files=(o.files||[]).filter(x=>x.id!==f);save(k==='task'?'tasks':'series');try{const A=await getAssets();if(A)await A.delete(f)}catch(e){}toast('Anexo removido.');reopenItem(k,id,day)},
  quickUndo:el=>{const id=el.dataset.id;if(el.dataset.k==='ser'){S.series=S.series.filter(x=>x.id!==id);save('series')}else{S.tasks=S.tasks.filter(x=>x.id!==id);save('tasks')}QK_RECENT=QK_RECENT.filter(x=>x.id!==id);render();toast('Desfeito.')},
  quickTab:()=>{closeAll();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
@@ -1836,6 +1860,7 @@ document.addEventListener('input',e=>{
 });
 document.addEventListener('change',e=>{
  const el=e.target;
+ if(el.dataset.attach&&el.files&&el.files.length)attachFiles(el);
  if(el.dataset.color){S.settings.types[el.dataset.color].c=el.value;save('settings')}
  if(el.dataset.a2==='moveTaskInput'&&el.value){ACT.moveTask({dataset:{id:el.dataset.id,ds:el.value}})}
  if(el.dataset.cmd!=null&&CMD){const o=CMD.ops[+el.dataset.cmd];if(o){o.on=el.checked;render()}}
