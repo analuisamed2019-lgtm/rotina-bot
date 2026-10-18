@@ -1033,7 +1033,7 @@ function cNotices(){
 }
 function upcomingStudies(){
  const t=today();const by={};
- for(const x of S.tasks)if(x.type==='estudo'&&x.date>=addD(t,-7)){(by[x.title]=by[x.title]||[]).push(x)}
+ for(const x of S.tasks)if(x.type==='estudo'&&!x.block&&x.date>=addD(t,-7)){(by[x.title]=by[x.title]||[]).push(x)}
  return Object.entries(by).map(([k,l])=>[k,l.sort((a,b)=>a.date.localeCompare(b.date))]).filter(([k,l])=>l.some(x=>!x.done||x.date>=t)).sort((a,b)=>a[1][0].date.localeCompare(b[1][0].date));
 }
 function cStudies(){
@@ -1190,17 +1190,61 @@ const type=remind?'lembrete':/\byoga\b/.test(low)?'yoga':/academia|treino|muscul
  return {title,date,time,end,type,guess,rec};
 }
 // ocupação de um dia em minutos: plantões (inclusive o noturno que vem do dia anterior) e tudo que tem horário (sem término = 1 h)
-function busyOn(ds,skipId){const out=[];
+function busyOn(ds,skipId){const out=[];const sk=id=>skipId instanceof Set?skipId.has(id):id===skipId;
  for(const x of S.shifts){if(x.date===ds){let a=toMin(x.start),b=toMin(x.end);if(b<=a)b+=1440;out.push({a,b,label:`plantão ${hm(x.start)}–${hm(x.end)}`})}
   else if(x.date===addD(ds,-1)&&shiftCross(x))out.push({a:0,b:toMin(x.end),label:`plantão noturno até ${hm(x.end)}`})}
  for(const it of itemsOn(ds)){if(it.k==='gcal'){for(const e of it.o.evs)if(e.time)out.push({a:toMin(e.time),b:e.end&&e.end>e.time?toMin(e.end):toMin(e.time)+60,label:`${it.o.med?'Medway – ':''}${e.title} ${hm(e.time)}${e.end?'–'+hm(e.end):''}`});continue}
-  if(it.k==='shift'||!it.time||it.id===skipId)continue;const a=toMin(it.time),e=it.o.end&&it.o.end>it.time?toMin(it.o.end):a+60;
+  if(it.k==='shift'||!it.time||sk(it.id))continue;const a=toMin(it.time),e=it.o.end&&it.o.end>it.time?toMin(it.o.end):a+60;
   out.push({a,b:e,label:`${it.type==='estudo'?'Estudo':it.title} ${hm(it.time)}${it.o.end?'–'+hm(it.o.end):''}`});
   // tempo invisível de lanche, troca de roupa, ida, volta e banho (não aparece na agenda)
   if(it.type==='academia')out.push({a:a-60,b:a,label:`preparo e ida para ${it.title.split(' (')[0]}`},{a:e,b:e+60,label:`volta e banho depois de ${it.title.split(' (')[0]}`});
   if(it.type==='yoga')out.push({a:a-30,b:a,label:'ida para o yoga'},{a:e,b:e+20,label:'volta do yoga'})}
- for(const x of S.shifts)if(x.date===ds&&x.id!==skipId){const a=toMin(x.start);let b=toMin(x.end);if(b<=a)b+=1440;out.push({a:a-60,b:a,label:'ida para o plantão'},{a:b,b:b+60,label:'volta do plantão'})}
+ for(const x of S.shifts)if(x.date===ds&&!sk(x.id)){const a=toMin(x.start);let b=toMin(x.end);if(b<=a)b+=1440;out.push({a:a-60,b:a,label:'ida para o plantão'},{a:b,b:b+60,label:'volta do plantão'})}
  return out}
+/* ---------- reorganizar o dia: blocos de estudo saem do caminho do que tem horário fixo ---------- */
+const movableIt=it=>(it.k==='task'||it.k==='ser')&&it.type==='estudo'&&it.time&&!it.done;
+const itSpan=it=>{const a=toMin(it.time);return [a,it.o.end&&it.o.end>it.time?toMin(it.o.end):a+60]};
+const m2t=m=>pad(Math.floor(m/60))+':'+pad(m%60);
+function planDay(ds){
+ const mov=itemsOn(ds).filter(movableIt).sort((x,y)=>x.time.localeCompare(y.time));if(!mov.length)return null;
+ const busy=busyOn(ds,new Set(mov.map(i=>i.id)));
+ const sp=mov.map(itSpan);
+ // almoço/descanso: o intervalo original entre os blocos da manhã e da tarde (ou 12–13)
+ let lunch=null;for(let i=1;i<sp.length;i++){const g=[sp[i-1][1],sp[i][0]];if(g[1]-g[0]>0&&g[1]-g[0]<=180&&g[0]<14*60&&g[1]>11*60){lunch=g;break}}
+ if(!lunch)lunch=[12*60,13*60];
+ const clash=sp.some(([a,b])=>busy.some(x=>a<x.b&&b>x.a));if(!clash)return null;
+ busy.push({a:lunch[0],b:lunch[1]});busy.sort((x,y)=>x.a-y.a);
+ const total=sp.reduce((n,[a,b])=>n+b-a,0);
+ const start=Math.min(sp[0][0],8*60),end=Math.max(19*60+30,...sp.map(x=>x[1]));
+ const segs=[];let cur=start,left=total;
+ const take=(a,b)=>{if(b-a>=30&&left>0){const e=Math.min(b,a+left);segs.push([a,e]);left-=e-a}};
+ for(const x of busy){if(x.b<=cur)continue;if(x.a>cur)take(cur,Math.min(x.a,end));cur=Math.max(cur,x.b);if(cur>=end)break}
+ if(cur<end)take(cur,end);
+ const allBlock=mov.every(i=>i.o.block);const titles=[...new Set(mov.filter(i=>!i.o.block).map(i=>i.title))];
+ const blocks=segs.map(([a,b])=>({time:m2t(a),end:m2t(b),title:allBlock?(a<13*60?'Manhã':'Tarde'):titles.join(' + ')||'Estudo'}));
+ return {ds,mov,blocks,missing:left,total,allBlock};
+}
+function reorgSheet(ds){
+ const p=planDay(ds);if(!p){toast('Nada a reorganizar neste dia.');return}
+ const old=p.mov.map(i=>`${hm(i.time)}–${hm(i.o.end||m2t(itSpan(i)[1]))}`).join(' · ');
+ const neu=p.blocks.map(b=>`${hm(b.time)}–${hm(b.end)}`).join(' · ')||'nenhum horário';
+ const fixed=itemsOn(ds).filter(i=>!p.mov.includes(i)&&i.time).map(i=>({t:i.time,e:i.k==='shift'?i.o.end:i.o.end||'',n:i.k==='shift'?'Plantão '+kindName(i.o.kind):i.k==='gcal'?(i.o.med?'Medway':i.title):i.title,c:T(i.type).c}));
+ const all=[...fixed,...p.blocks.map(b=>({t:b.time,e:b.end,n:'Estudo · '+b.title,c:T('estudo').c,nw:!p.mov.some(i=>i.time===b.time&&m2t(itSpan(i)[1])===b.end)}))].sort((a,b)=>a.t.localeCompare(b.t));
+ const fh=m=>hm(m2t(m)).replace(/^0h$/,'0 min');
+ sheet('Reorganizar o dia',`<p class="small" style="margin:0 0 6px"><b>${cap1(dLong(ds))}</b>: um compromisso com horário bate com o estudo. Mantive tudo que é fixo e movi só o estudo para o tempo realmente livre, respeitando almoço, ida e volta dos treinos e plantões.</p>
+ <div class="kv"><span>Estudo antes</span><b>${old}</b></div><div class="kv"><span>Estudo depois</span><b>${neu}</b></div>
+ ${p.missing>0?`<p class="tiny" style="color:var(--warn);margin:6px 0">Não coube ${fh(p.missing)} de estudo hoje (até 19:30). Dá para repor na próxima janela livre.</p>`:`<p class="tiny muted" style="margin:6px 0">Mesmo total de estudo: ${fh(p.total)}.</p>`}
+ <h4 class="small" style="margin:12px 0 6px">Como fica o dia</h4><ul class="lst tl">${all.map(x=>`<li><span class="tm">${hm(x.t)}${x.e?'–'+hm(x.e):''}</span><span class="dot" style="background:${x.c}"></span><span class="grow">${x.nw?'<b>':''}${h(x.n)}${x.nw?'</b> <span class="tag">novo horário</span>':''}</span></li>`).join('')}</ul>
+ <div class="btns"><button class="btn pri" data-a="reorgApply" data-ds="${ds}">Aplicar na agenda</button><button class="btn" data-a="closeSheet">Deixar como está</button></div>`,true,'reorg');
+}
+function applyReorg(ds){
+ const p=planDay(ds);if(!p)return;
+ const notes=p.mov.map(i=>i.o.notes).filter(Boolean).join('\n');let files=[];
+ for(const i of p.mov){if(i.k==='task'){files=files.concat(i.o.files||[]);S.tasks=S.tasks.filter(t=>t.id!==i.id)}else{const r=S.series.find(x=>x.id===i.id);r.skip=[...(r.skip||[]),ds]}}
+ p.blocks.forEach((b,j)=>S.tasks.push({id:nid(),title:b.title,type:'estudo',date:ds,time:b.time,end:b.end,fixed:true,done:false,created:Date.now(),notes:j?'':notes,files:j?[]:files,...(p.allBlock?{block:true}:{})}));
+ memo={};save('tasks','series');
+}
+function offerReorg(ds){memo={};if(ds&&planDay(ds))setTimeout(()=>reorgSheet(ds),60)}
 function conflictsFor(ds,time,end,skipId){if(!time)return [];const a=toMin(time),b=end&&end>time?toMin(end):a+60;return busyOn(ds,skipId).filter(x=>a<x.b&&b>x.a).map(x=>x.label)}
 function quickConflicts(q){const c=conflictsFor(q.date,q.time,q.end);return c.length?`coincide com ${c.join(' e ')}`:''}
 function quickPrevHTML(txt){const ls=String(txt||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,20);
@@ -1639,6 +1683,7 @@ function dayPanel(ds){
  return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>${weekLbl(ds)}</span></div>
  ${its.length?`<ul class="lst tl">${rows}</ul>`:'<p class="empty">Dia livre, nada agendado.</p>'}
  ${its.length&&ds>=today()?(()=>{const w=freeWindows(ds);return `<p class="small" style="margin:10px 0 0"><b>Livre de verdade:</b> ${w.length?w.join(' · '):'<span class="muted">nada (só transições e descanso)</span>'}</p>`})():''}
+ ${ds>=today()&&planDay(ds)?`<p class="small" style="margin:10px 0 0;color:var(--warn)">⚠ O estudo deste dia bate com outro compromisso. <button class="btn sm" data-a="reorg" data-ds="${ds}">Reorganizar o dia</button></p>`:''}
  <div class="btns"><button class="btn sm pri" data-a="newTask" data-ds="${ds}">+ Tarefa</button><button class="btn sm" data-a="newShift" data-ds="${ds}">+ Plantão</button><button class="btn sm" data-a="goWeek" data-ds="${ds}">Ver na semana</button></div>`;
 }
 function daySheet(ds){MV.sel=ds;sheet(cap1(dLong(ds)),dayPanel(ds),true,'day',`<button class="icon-btn" data-a="dayNav" data-ds="${addD(ds,-1)}" aria-label="Dia anterior">${ico('l')}</button><button class="icon-btn" data-a="dayNav" data-ds="${addD(ds,1)}" aria-label="Próximo dia">${ico('r')}</button>`);liveSheet=()=>daySheet(ds)}
@@ -1752,6 +1797,8 @@ function settingsSheet(){
 function findTask(id){return S.tasks.find(x=>x.id===id)}
 function armed(el){if(el.classList.contains('arm'))return true;el.classList.add('arm');el.dataset.txt=el.textContent;el.textContent='Toque de novo para confirmar';setTimeout(()=>{if(el.isConnected){el.classList.remove('arm');el.textContent=el.dataset.txt}},4000);return false}
 const ACT={
+ reorg:el=>reorgSheet(el.dataset.ds),
+ reorgApply:el=>{applyReorg(el.dataset.ds);closeSheet();toast('Agenda do dia reorganizada.')},
  tab:el=>{tab=el.dataset.v;try{localStorage.setItem(LS+'-tab',tab)}catch(e){}render();window.scrollTo(0,0)},
  settings:()=>settingsSheet(),
  closeSheet:()=>closeSheet(),
@@ -1902,10 +1949,11 @@ const FORMS={
    if(rec==='none')S.tasks.push({id:nid(),title,type,date,time,end,notes,done:false,created:Date.now()});
    else S.series.push({id:nid(),title,type,time,end,notes,start:date,rule:rec,skip:[],done:[]});
    save(rec==='none'?'tasks':'series');closeSheet();
+   if(rec==='none'&&time&&type!=='estudo'&&(memo={},planDay(date))){offerReorg(date);return}
    if(rec==='none'&&type!=='academia'&&type!=='yoga'){memo={};const c=capacity(date),l=load(date);if(l>c)toast((c===0?`${dLabel(date)} não tem espaço previsto. Considere outro dia.`:`${dLabel(date)} passou do limite (${l} de ${c}).`)+warnC);else toast('Adicionado.'+warnC)}else toast('Adicionado.'+warnC);
-  }else if(mode==='editTask'){const t=findTask(f.dataset.id);if(!t)return;Object.assign(t,{title,type,date,time,end,notes});save('tasks');closeSheet();if(warnC)toast('Salvo.'+warnC)}
+  }else if(mode==='editTask'){const t=findTask(f.dataset.id);if(!t)return;Object.assign(t,{title,type,date,time,end,notes});save('tasks');closeSheet();if(time&&type!=='estudo'&&(memo={},planDay(date)))offerReorg(date);else if(warnC)toast('Salvo.'+warnC)}
   else if(mode==='editSeries'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;Object.assign(r,{title,type,time,end,notes,start:date,rule:rec});save('series');closeSheet();toast('Série atualizada.'+warnC)}
-  else if(mode==='editOcc'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;r.skip=[...(r.skip||[]),f.dataset.day];S.tasks.push({id:nid(),title,type,date,time,end,notes,done:(r.done||[]).includes(f.dataset.day),created:Date.now(),fromSeries:r.id});save('series','tasks');closeSheet();toast('Só este dia foi alterado.'+warnC)}
+  else if(mode==='editOcc'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;r.skip=[...(r.skip||[]),f.dataset.day];S.tasks.push({id:nid(),title,type,date,time,end,notes,done:(r.done||[]).includes(f.dataset.day),created:Date.now(),fromSeries:r.id});save('series','tasks');closeSheet();if(time&&type!=='estudo'&&(memo={},planDay(date)))offerReorg(date);else toast('Só este dia foi alterado.'+warnC)}
  },
  shift:f=>{
   const id=f.dataset.id,date=$('#sfDate').value,start=$('#sfStart').value,end=$('#sfEnd').value,kind=$('#sfKind').value;
@@ -1929,7 +1977,8 @@ const FORMS={
   for(const l of ls){const q=parseQuick(l);const id=nid();
    if(q.rec!=='none'){S.series.push({id,title:q.title,type:q.type,time:q.time,end:q.end||'',start:q.date,rule:q.rec,skip:[],done:[]});QK_RECENT.unshift({k:'ser',id});msgs.push(`${q.title} → ${recLabel(q.rec,q.date).toLowerCase()}${q.time?' '+hm(q.time):''}`)}
    else{S.tasks.push({id,title:q.title,type:q.type,date:q.date,time:q.time,end:q.end||'',fixed:true,done:false,created:Date.now()});QK_RECENT.unshift({k:'task',id});msgs.push(`${q.title} → ${dLabel(q.date)}${q.time?' '+hm(q.time):''}`)}}
-  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks','series');toast(ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`)},
+  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks','series');toast(ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`);
+  memo={};const rd=ls.map(parseQuick).filter(q=>q.rec==='none'&&q.time&&q.type!=='estudo').map(q=>q.date).find(d=>planDay(d));if(rd)offerReorg(rd)},
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
  addExp:f=>{const v=parseBRL(D.mxV);const name=(D.mxName||'').trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#mxDate').value||today()});D.mxName='';D.mxV='';save('money')},
  addInv:f=>{const v=parseBRL(D.ivV);if(!(v>0)){toast('Informe o valor do aporte (ex.: 1.500,00).');return}S.money.inv.push({id:nid(),desc:(D.ivDesc||'').trim(),v,date:$('#ivDate').value||today()});D.ivDesc='';D.ivV='';save('money')},
