@@ -712,8 +712,11 @@ const studiesOn=ds=>itemsOn(ds).filter(i=>i.type==='estudo'&&!(i.o&&i.o.block)).
 function freeWindows(ds){
  if(longShiftOn(ds))return [];
  const b=busyOn(ds);
- const bl=itemsOn(ds).filter(i=>i.o&&i.o.block&&i.time).map(i=>({a:toMin(i.time),b:toMin(i.o.end||i.time)+(i.o.end?0:60)})).sort((x,y)=>x.a-y.a);
- let lunch=false;for(let i=1;i<bl.length;i++)if(bl[i].a-bl[i-1].b<=180){b.push({a:bl[i-1].b,b:bl[i].a});if(bl[i-1].b<14*60&&bl[i].a>11*60)lunch=true}
+ // blocos de estudo do dia: os da Medway (Google Agenda) e os criados no app; o intervalo entre manhã e tarde é almoço/descanso
+ const bl=[];for(const i of itemsOn(ds)){if(i.k==='gcal'&&i.o.med){for(const e of i.o.evs)if(e.time)bl.push({a:toMin(e.time),b:e.end&&e.end>e.time?toMin(e.end):toMin(e.time)+60})}
+  else if(i.type==='estudo'&&i.time&&i.k!=='gcal')bl.push({a:toMin(i.time),b:i.o.end&&i.o.end>i.time?toMin(i.o.end):toMin(i.time)+60})}
+ bl.sort((x,y)=>x.a-y.a);
+ let lunch=false;for(let i=1;i<bl.length;i++)if(bl[i].a-bl[i-1].b<=180&&bl[i-1].b<14*60&&bl[i].a>11*60){b.push({a:bl[i-1].b,b:bl[i].a});lunch=true}
  if(bl.length&&!lunch)b.push({a:12*60,b:13*60});
  b.sort((x,y)=>x.a-y.a);const out=[];let cur=8*60;const end=19*60+30; // depois disso: jantar e desacelerar para dormir
  for(const x of b){if(x.a-cur>=60)out.push([cur,Math.min(x.a,end)]);cur=Math.max(cur,x.b);if(cur>=end)break}
