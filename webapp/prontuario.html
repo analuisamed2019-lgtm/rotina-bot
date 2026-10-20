@@ -457,6 +457,7 @@ const nid=()=>Math.random().toString(36).slice(2,9)+Date.now().toString(36).slic
 const toMin=t=>{const [a,b]=(t||'0:0').split(':').map(Number);return a*60+(b||0)};
 const hm=t=>{if(!t)return '';const [a,b]=t.split(':');return b==='00'?`${+a}h`:`${+a}:${b}`};
 const dLabel=s=>{const d=P(s);return `${WD[d.getDay()]} ${d.getDate()}/${pad(d.getMonth()+1)}`};
+const spanLbl=t=>t.endDate&&t.endDate>t.date?`${dLabel(t.date)} até ${dLabel(t.endDate)} · ${diffD(t.date,t.endDate)+1} dias`:'';
 const dLong=s=>{const d=P(s);return `${WDL[d.getDay()]}, ${d.getDate()} de ${MOL[d.getMonth()]}`};
 const mLabel=m=>{const [y,mm]=m.split('-').map(Number);return `${MOL[mm-1]} ${y}`};
 const mShort=m=>{const [y,mm]=m.split('-').map(Number);return `${MO[mm-1]}/${String(y).slice(2)}`};
@@ -694,7 +695,7 @@ function itemsOn(ds){
  if(memo['i'+ds])return memo['i'+ds];
  const out=[];
  for(const s of S.shifts)if(s.date===ds)out.push({k:'shift',id:s.id,type:'plantao',time:s.start,title:'Plantão '+kindName(s.kind),done:shiftDone(s),o:s});
- for(const t of S.tasks)if(t.date===ds)out.push({k:'task',id:t.id,type:t.type,time:t.time||'',title:t.title,done:!!t.done,o:t});
+ for(const t of S.tasks)if(t.date===ds||(t.endDate&&t.date<ds&&ds<=t.endDate))out.push({k:'task',id:t.id,type:t.type,time:t.time||'',title:t.title,done:!!t.done,o:t,...(t.endDate&&t.endDate>t.date?{span:[diffD(t.date,ds)+1,diffD(t.date,t.endDate)+1]}:{})});
  for(const r of S.series)if(occurs(r,ds))out.push({k:'ser',id:r.id,type:r.type,time:r.time||'',title:r.title,done:(r.done||[]).includes(ds),o:r});
  const gd=GC.byDay[ds];
  if(gd){const gdone=S.settings.gdone||[];
@@ -704,7 +705,7 @@ function itemsOn(ds){
  return memo['i'+ds]=out;
 }
 // blocos fixos da rotina (estudo diário, preparo/deslocamento) não contam como tarefa extra
-const countsLoad=it=>it.type!=='plantao'&&it.type!=='academia'&&it.type!=='yoga'&&it.type!=='lembrete'&&!(it.o&&it.o.block);
+const countsLoad=it=>it.type!=='plantao'&&it.type!=='academia'&&it.type!=='yoga'&&it.type!=='lembrete'&&!(it.o&&(it.o.block||it.o.endDate));
 const load=ds=>itemsOn(ds).filter(countsLoad).length;
 const studiesOn=ds=>itemsOn(ds).filter(i=>i.type==='estudo'&&!(i.o&&i.o.block)).length;
 // janelas livres de verdade: buracos de 1 h ou mais entre 8h e 19:30. Já descontam o preparo/deslocamento
@@ -787,7 +788,7 @@ function bestDay(start,task,extra){
 }
 function reschedule(){
  const t=today();
- const over=S.tasks.filter(x=>!x.done&&!x.fixed&&x.date<t).sort((a,b)=>a.date.localeCompare(b.date));
+ const over=S.tasks.filter(x=>!x.done&&!x.fixed&&(x.endDate||x.date)<t).sort((a,b)=>a.date.localeCompare(b.date));
  // limpa avisos antigos já vistos
  const before=S.notices.length;
  S.notices=S.notices.filter(n=>!n.seen||Date.now()-n.ts<60*864e5);
@@ -1167,6 +1168,14 @@ function parseQuick(raw){
  if(rec!=='none'&&rwd==null&&(rec==='weekly'||rec==='biweekly'))cut(R(QB+'(?:às|as|nas|na|no|nos)?\\s*'+'(segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo|seg|ter|qua|qui|sex|s[áa]b|dom)s?(?:-feiras?)?'+QE),m=>{rwd=QWD[m[1].toLowerCase()];if(rwd==null)return false});
  if(rec==='weekly'&&rwd!=null)cut(R(QB+'(?:de\\s+|das\\s+|nas\\s+)?semanas?\\s+(par|pares|[íi]mpar|[íi]mpares)'+QE),m=>{rec=parW(m[1])});
  cut(R(QB+'(?:a\\s+partir\\s+de|come[çc]ando|desde)'+QE),()=>{});
+ // período de vários dias: "de 18 de dezembro até 31 de dezembro", "18 a 31/12", "de 30/12 a 3/1", "por 4 dias"
+ let endDate='';
+ if(rec==='none'){
+  const RNG='(?:de\\s+|do\\s+dia\\s+|dia\\s+|desde\\s+|entre\\s+)?';const TO='\\s+(?:at[ée]|a|à|e|-|–)\\s+(?:o\\s+)?(?:dia\\s+)?';
+  cut(R(QB+RNG+'(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?'+TO+'(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?'+QE),m=>{const b=qDate(m[6],m[5],m[4]);let a=qDate(m[3]||m[6],m[2],m[1]);if(a&&b&&a>b)a=qDate(String(+b.slice(0,4)-1),m[2],m[1]);if(!a||!b||a>b)return false;date=a;endDate=b})||
+  cut(R(QB+RNG+'(\\d{1,2})(?:\\s+de\\s+([a-zç]+))?(?:\\s+de\\s+(\\d{4}))?'+TO+'(\\d{1,2})(?:\\s+de)?\\s+([a-zç]+)(?:\\s+de\\s+(\\d{4}))?'+QE),m=>{const mo2=QMO[m[5].toLowerCase()],mo1=m[2]?QMO[m[2].toLowerCase()]:mo2;if(!mo1||!mo2)return false;const b=qDate(m[6],mo2,m[4]);let a=qDate(m[3]||m[6],mo1,m[1]);if(a&&b&&a>b)a=qDate(String(+b.slice(0,4)-1),mo1,m[1]);if(!a||!b||a>b)return false;date=a;endDate=b})||
+  cut(R(QB+RNG+'(\\d{1,2})'+TO+'(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?'+QE),m=>{const b=qDate(m[4],m[3],m[2]);const a=b&&qDate(b.slice(0,4),m[3],m[1]);if(!a||!b||a>b)return false;date=a;endDate=b});
+ }
  cut(R(QB+'depois de amanh[ãa]'+QE),()=>{date=addD(t,2)})||cut(R(QB+'amanh[ãa]'+QE),()=>{date=addD(t,1)})||cut(R(QB+'hoje'+QE),()=>{date=t})||
  cut(R(QB+'(?:dia\\s+)?(\\d{1,2})\\/(\\d{1,2})(?:\\/(\\d{2,4}))?'+QE),m=>{const d=qDate(m[3],m[2],m[1]);if(!d)return false;date=d})||
  cut(R(QB+'(?:dia\\s+)?(\\d{1,2})\\s+de\\s+([a-zç]+)(?:\\s+de\\s+(\\d{4}))?'+QE),m=>{const mo=QMO[m[2].toLowerCase()];if(!mo)return false;const d=qDate(m[3],mo,m[1]);if(!d)return false;date=d})||
@@ -1178,6 +1187,7 @@ function parseQuick(raw){
  cut(R(QB+'(?:às|as)\\s+(\\d{1,2})'+QE),m=>{time=qhm(m[1]);if(!time)return false});
  cut(R(QB+'(?:por|dura[çc][aã]o\\s+de|durante)\\s+(\\d{1,2})\\s*(?:(h|horas?)\\s*(\\d{2})?|(min|minutos?))'+QE),m=>{if(!time)return false;const mins=m[4]?+m[1]:(+m[1])*60+(+(m[3]||0));const e=toMin(time)+mins;if(e>=1440)return false;end=`${pad(Math.floor(e/60))}:${pad(e%60)}`});
  if(end&&end<=time)end='';
+ if(rec==='none'&&!endDate)cut(R(QB+'(?:por|durante)\\s+(\\d{1,2})\\s+dias'+QE),m=>{const n=+m[1];if(n<2||n>60)return false;endDate=addD(date||t,n-1)});
  if(rec!=='none'){
   let d=date||t;
   if(mday){let c=d;for(let i=0;i<62;i++){if(P(c).getDate()===mday)break;c=addD(c,1)}d=c}
@@ -1190,7 +1200,8 @@ function parseQuick(raw){
  if(!title)title='Compromisso';title=title.charAt(0).toUpperCase()+title.slice(1);
  const low=title.toLowerCase();
 const type=remind?'lembrete':/\byoga\b/.test(low)?'yoga':/academia|treino|muscula|personal/.test(low)?'academia':/estud|aula|simulado|revis[aã]o|medway|quest[õo]es/.test(low)?'estudo':'pessoal';
- return {title,date,time,end,type,guess,rec};
+ if(endDate&&endDate<=date)endDate='';
+ return {title,date,time,end,type,guess,rec,endDate};
 }
 // ocupação de um dia em minutos: plantões (inclusive o noturno que vem do dia anterior) e tudo que tem horário (sem término = 1 h)
 function busyOn(ds,skipId){const out=[];const sk=id=>skipId instanceof Set?skipId.has(id):id===skipId;
@@ -1249,10 +1260,11 @@ function applyReorg(ds){
 }
 function offerReorg(ds){memo={};if(ds&&planDay(ds))setTimeout(()=>reorgSheet(ds),60)}
 function conflictsFor(ds,time,end,skipId){if(!time)return [];const a=toMin(time),b=end&&end>time?toMin(end):a+60;return busyOn(ds,skipId).filter(x=>a<x.b&&b>x.a).map(x=>x.label)}
-function quickConflicts(q){const c=conflictsFor(q.date,q.time,q.end);return c.length?`coincide com ${c.join(' e ')}`:''}
+const shiftsIn=(a,b)=>S.shifts.filter(x=>x.date>=a&&x.date<=b).sort((x,y)=>x.date.localeCompare(y.date));
+function quickConflicts(q){if(q.endDate){const sh=shiftsIn(q.date,q.endDate);return sh.length?`tem ${sh.length} plantão(ões) nesse período: ${sh.slice(0,6).map(x=>dLabel(x.date)).join(', ')}${sh.length>6?'…':''}`:''}const c=conflictsFor(q.date,q.time,q.end);return c.length?`coincide com ${c.join(' e ')}`:''}
 function quickPrevHTML(txt){const ls=String(txt||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,20);
  if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>terapia toda quinta par 16h por 50 min</i> · <i>pagar aluguel todo dia 10</i> · <i>lembrete amanhã ligar para Carol</i>.</p>';
- return ls.map(l=>{const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b>${q.rec!=='none'?`<span class="tiny" style="color:var(--accent);font-weight:700">↻ ${recLabel(q.rec,q.date)}</span>`:''}<span class="tiny muted">${q.rec!=='none'?'começa ':''}${dLabel(q.date)}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
+ return ls.map(l=>{const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b>${q.rec!=='none'?`<span class="tiny" style="color:var(--accent);font-weight:700">↻ ${recLabel(q.rec,q.date)}</span>`:''}<span class="tiny muted">${q.rec!=='none'?'começa ':''}${dLabel(q.date)}${q.endDate?' até '+dLabel(q.endDate)+` (${diffD(q.date,q.endDate)+1} dias)`:''}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
 const recLabel=(r,ds)=>{const g=P(ds).getDay(),w=WDL[g],td=g===0||g===6?'Todo':'Toda';return {daily:'Todo dia',weekly:`${td} ${w}`,odd:`${td} ${w} de semana ímpar`,even:`${td} ${w} de semana par`,biweekly:`A cada 2 semanas (${w})`,monthly:`Todo dia ${P(ds).getDate()}`}[r]||''};
 let QK_RECENT=[];
 function vQuick(){
@@ -1421,7 +1433,7 @@ const OPS_DOC=`Operações (use só estas; datas AAAA-MM-DD; horas HH:MM; weekda
 {"op":"add_fixed_shift","weekday":5,"weeks":"all","start":"07:00","end":"19:00","kind":"tutora|porta","from":"data de início"}
 {"op":"add_shift","date":"…","start":"…","end":"…","kind":"tutora|porta"}
 {"op":"delete_shift","id":"<id do plantão avulso>"}
-{"op":"add_task","title":"…","type":"pessoal|estudo|academia|yoga|lembrete","date":"…","time":"","end":"","fixed":true}
+{"op":"add_task","title":"…","type":"pessoal|estudo|academia|yoga|lembrete","date":"…","end_date":"(opcional: último dia, para atividades de vários dias como viagem)","time":"","end":"","fixed":true}
 {"op":"move_task","id":"…","date":"…","time":""}
 {"op":"delete_task","id":"…"}
 {"op":"add_series","title":"…","type":"pessoal|estudo|academia|yoga","weekday":4,"weeks":"all|odd|even","time":"16:00","end":"","from":"…"}
@@ -1454,7 +1466,7 @@ function cmdDescribe(o){const t=today();
   case 'add_fixed_shift':{if(!(o.weekday>=0&&o.weekday<=6)||!okD(o.from)||!okT(o.start)||!okT(o.end)||!o.start||!o.end||!['tutora','porta'].includes(o.kind))return null;const w=o.weeks||'all';const f=firstWd(o.from,+o.weekday,w);return f?`Novo plantão fixo: toda ${wdn(o.weekday)} ${wk(w)} · ${kindName(o.kind)} ${hm(o.start)}–${hm(o.end)} · começa ${dLabel(f)}`:null}
   case 'add_shift':return okD(o.date)&&o.start&&o.end&&['tutora','porta'].includes(o.kind)?`Novo plantão: ${dLabel(o.date)} · ${kindName(o.kind)} ${hm(o.start)}–${hm(o.end)}`:null;
   case 'delete_shift':{const x=SH(o.id);return x?`Excluir plantão: ${dLabel(x.date)} · ${kindName(x.kind)} ${hm(x.start)}–${hm(x.end)}`:null}
-  case 'add_task':return o.title&&okD(o.date)&&okT(o.time)?`Adicionar: ${o.type==='lembrete'?'lembrete ':''}${o.title} · ${dLabel(o.date)}${o.time?' '+hm(o.time):''}${o.end?'–'+hm(o.end):''}`:null;
+  case 'add_task':return o.title&&okD(o.date)&&okT(o.time)?`Adicionar: ${o.type==='lembrete'?'lembrete ':''}${o.title} · ${dLabel(o.date)}${okD(o.end_date)&&o.end_date>o.date?' até '+dLabel(o.end_date):''}${o.time?' '+hm(o.time):''}${o.end?'–'+hm(o.end):''}`:null;
   case 'move_task':{const x=TK(o.id);return x&&okD(o.date)&&okT(o.time)?`Mover: ${x.title} · ${dLabel(x.date)} → ${dLabel(o.date)}${o.time?' '+hm(o.time):''}`:null}
   case 'delete_task':{const x=TK(o.id);return x?`Excluir: ${x.title} (${dLabel(x.date)})`:null}
   case 'add_series':{if(!o.title||!(o.weekday>=0&&o.weekday<=6)||!okD(o.from)||!okT(o.time))return null;const w=o.weeks||'all';const f=firstWd(o.from,+o.weekday,w);return f?`Nova repetição: ${o.title} · toda ${wdn(o.weekday)} ${wk(w)}${o.time?' '+hm(o.time):''}${o.end?'–'+hm(o.end):''} · começa ${dLabel(f)}`:null}
@@ -1468,7 +1480,7 @@ function cmdApply(o){
   case 'add_fixed_shift':{const w=o.weeks||'all',f=firstWd(o.from,+o.weekday,w);S.rules.push({id:nid(),par:w,start:f,t0:o.start,t1:o.end,kind:o.kind,upto:addD(f,-1)});break}
   case 'add_shift':S.shifts.push({id:nid(),date:o.date,start:o.start,end:o.end,kind:o.kind,v12:S.settings.rates[o.kind]});break;
   case 'delete_shift':removeShift(o.id);break;
-  case 'add_task':S.tasks.push({id:nid(),title:String(o.title).slice(0,120),type:S.settings.types[o.type]&&o.type!=='plantao'?o.type:'pessoal',date:o.date,time:o.time||'',end:o.end||'',fixed:o.fixed!==false,done:false,created:Date.now()});break;
+  case 'add_task':S.tasks.push({id:nid(),title:String(o.title).slice(0,120),type:S.settings.types[o.type]&&o.type!=='plantao'?o.type:'pessoal',date:o.date,time:o.time||'',end:o.end||'',fixed:o.fixed!==false,done:false,created:Date.now(),...(okD(o.end_date)&&o.end_date>o.date?{endDate:o.end_date,fixed:true}:{})});break;
   case 'move_task':{const x=findTask(o.id);x.date=o.date;if(o.time)x.time=o.time;break}
   case 'delete_task':S.tasks=S.tasks.filter(x=>x.id!==o.id);break;
   case 'add_series':{const w=o.weeks||'all',f=firstWd(o.from,+o.weekday,w);S.series.push({id:nid(),title:String(o.title).slice(0,80),type:S.settings.types[o.type]&&o.type!=='plantao'?o.type:'pessoal',time:o.time||'',end:o.end||'',start:f,rule:w==='all'?'weekly':w,skip:[],done:[]});break}
@@ -1636,6 +1648,7 @@ function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoa
   <label class="field"><span id="tfTitleL">${tp==='estudo'?'Tema (na agenda aparece só "Estudo")':'Título'}</span><input class="in" id="tfTitle" value="${h(title)}" required placeholder="${tp==='estudo'?'Ex.: Cardiologia – IC':'Ex.: pagar boleto'}"></label>
   <div class="grid2"><label class="field"><span>Tipo</span><select class="in" id="tfType">${typeOpts(tp)}</select></label>
   <label class="field"><span>${mode==='editSeries'?'Começa em':'Data'}</span><input class="in" type="date" id="tfDate" value="${dt}" required></label></div>
+  ${mode==='new'||mode==='editTask'?`<label class="field"><span>Até (opcional · para atividades de vários dias, como viagem)</span><input class="in" type="date" id="tfEndDate" value="${task&&task.endDate||''}"></label>`:''}
   <div class="grid2"><label class="field"><span>Início (opcional)</span><input class="in" type="time" id="tfTime" value="${o.time||''}" data-tfc></label><label class="field"><span>Término (opcional)</span><input class="in" type="time" id="tfEnd" value="${o.end||''}" data-tfc></label></div>
   <p class="tiny" id="tfConf" style="color:var(--warn);margin:0"></p>
   <label class="field"><span>Notas (opcional)</span><textarea class="in" id="tfNotes" rows="3" placeholder="Detalhes, endereço, o que levar, links…">${h(o.notes||'')}</textarea></label>
@@ -1680,7 +1693,7 @@ function dayPanel(ds){
  const rows=its.map(it=>{
   const tm=it.k==='shift'?`${hm(it.o.start)}–${hm(it.o.end)}`:it.time?hm(it.time)+(it.o.end&&it.o.end>it.time?'–'+hm(it.o.end):''):'dia todo';
   const title=it.k==='shift'?`Plantão ${kindName(it.o.kind)}`:it.type==='estudo'?`Estudo · ${it.title}`:it.title;
-  const hasN=it.o&&(it.o.notes||(it.o.files||[]).length)&&it.k!=='gcal';const sub=(hasN?'com notas · ':'')+(it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`);
+  const hasN=it.o&&(it.o.notes||(it.o.files||[]).length)&&it.k!=='gcal';const sub=(hasN?'com notas · ':'')+(it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${it.span?`dia ${it.span[0]} de ${it.span[1]} · `:''}${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`);
   return `<li><span class="tm">${tm}</span><span class="dot" style="background:${T(it.type).c}"></span><button class="grow" data-a="open" data-k="${it.k}" data-id="${it.id}" data-day="${ds}"><b>${h(title)}</b><span class="tiny faint">${h(sub)}</span></button>${it.k!=='shift'?`<button class="btn sm ${it.done?'pri':''}" data-a="toggle" data-k="${it.k}" data-id="${it.id}" data-day="${ds}" aria-pressed="${it.done}">${it.done?'Feito':'Concluir'}</button>`:''}</li>`;
  }).join('');
  return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>${weekLbl(ds)}</span></div>
@@ -1729,7 +1742,7 @@ function openItem(k,id,day){
  if(k==='shift'){const s=S.shifts.find(x=>x.id===id);if(s)shiftForm(s);return}
  if(k==='task'){
   const t=S.tasks.find(x=>x.id===id);if(!t)return;
-  sheet(T(t.type).n,`<div class="det"><span class="t">${h(t.title)}</span><span class="small muted">${dLong(t.date)}${t.time?' · '+hm(t.time)+(t.end?'–'+hm(t.end):''):''}</span>${t.fixed?'<span class="small"><span class="pill">compromisso fixo · não é remanejado</span></span>':''}${t.moved?`<span class="small"><span class="pill ${t.moved>=3?'warn':''}">remanejada ${t.moved}×</span> <span class="faint">original: ${dLabel(t.orig||t.date)}</span></span>`:''}</div>
+  sheet(T(t.type).n,`<div class="det"><span class="t">${h(t.title)}</span><span class="small muted">${spanLbl(t)||dLong(t.date)}${t.time?' · '+hm(t.time)+(t.end?'–'+hm(t.end):''):''}</span>${t.fixed?'<span class="small"><span class="pill">compromisso fixo · não é remanejado</span></span>':''}${t.moved?`<span class="small"><span class="pill ${t.moved>=3?'warn':''}">remanejada ${t.moved}×</span> <span class="faint">original: ${dLabel(t.orig||t.date)}</span></span>`:''}</div>
   <div class="btns"><button class="btn pri" data-a="toggle" data-k="task" data-id="${t.id}" data-close="1">${t.done?'Desmarcar':'Concluir'}</button><button class="btn" data-a="editTask" data-id="${t.id}">Editar</button></div>
   <div class="sh-sec"><h4>Notas</h4><textarea class="in" rows="4" data-notes="task" data-id="${t.id}" placeholder="Escreva aqui o que precisa lembrar sobre esta atividade…" aria-label="Notas">${h(t.notes||'')}</textarea><span class="tiny faint">Salva sozinho enquanto você escreve.</span>${filesHTML('task',t,'')}</div>
   <div class="sh-sec"><h4>Mover para</h4>${moveSugs(t.date,'moveTask',t.id)}<input class="in" type="date" id="mvDate" value="${t.date}" data-a2="moveTaskInput" data-id="${t.id}" aria-label="Escolher outra data"></div>
@@ -1944,17 +1957,17 @@ const FORMS={
  note:f=>{const v=$('#ntText').value.trim();if(!v)return;const id=f.dataset.id;const now=Date.now();
   if(id){const n=S.notes.find(x=>x.id===id);if(n){n.text=v;n.upd=now}}else S.notes.push({id:nid(),text:v,ts:now,upd:now,pin:false});save('notes');closeSheet()},
  task:f=>{
-  const mode=f.dataset.mode,title=$('#tfTitle').value.trim(),type=$('#tfType').value,date=$('#tfDate').value,time=$('#tfTime').value,rec=$('#tfRec')?.value||'none';let end=$('#tfEnd').value;if(!time||end<=time)end='';
+  const mode=f.dataset.mode,title=$('#tfTitle').value.trim(),type=$('#tfType').value,date=$('#tfDate').value,time=$('#tfTime').value,rec=$('#tfRec')?.value||'none';let end=$('#tfEnd').value;if(!time||end<=time)end='';let endDate=$('#tfEndDate')?.value||'';if(endDate<=date)endDate='';
   if(!title||!date)return;
   const notes=($('#tfNotes')?.value||'').trim();
   const skipC=mode==='editTask'||mode==='editSeries'?f.dataset.id:null;const cf=conflictsFor(date,time,end,skipC);const warnC=cf.length?` ⚠ Coincide com ${cf.join(' e ')}.`:'';
   if(mode==='new'){
-   if(rec==='none')S.tasks.push({id:nid(),title,type,date,time,end,notes,done:false,created:Date.now()});
+   if(rec==='none')S.tasks.push({id:nid(),title,type,date,time,end,notes,done:false,created:Date.now(),...(endDate?{endDate,fixed:true}:{})});
    else S.series.push({id:nid(),title,type,time,end,notes,start:date,rule:rec,skip:[],done:[]});
    save(rec==='none'?'tasks':'series');closeSheet();
    if(rec==='none'&&time&&type!=='estudo'&&(memo={},planDay(date))){offerReorg(date);return}
    if(rec==='none'&&type!=='academia'&&type!=='yoga'){memo={};const c=capacity(date),l=load(date);if(l>c)toast((c===0?`${dLabel(date)} não tem espaço previsto. Considere outro dia.`:`${dLabel(date)} passou do limite (${l} de ${c}).`)+warnC);else toast('Adicionado.'+warnC)}else toast('Adicionado.'+warnC);
-  }else if(mode==='editTask'){const t=findTask(f.dataset.id);if(!t)return;Object.assign(t,{title,type,date,time,end,notes});save('tasks');closeSheet();if(time&&type!=='estudo'&&(memo={},planDay(date)))offerReorg(date);else if(warnC)toast('Salvo.'+warnC)}
+  }else if(mode==='editTask'){const t=findTask(f.dataset.id);if(!t)return;Object.assign(t,{title,type,date,time,end,notes,endDate});if(endDate)t.fixed=true;save('tasks');closeSheet();if(time&&type!=='estudo'&&(memo={},planDay(date)))offerReorg(date);else if(warnC)toast('Salvo.'+warnC)}
   else if(mode==='editSeries'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;Object.assign(r,{title,type,time,end,notes,start:date,rule:rec});save('series');closeSheet();toast('Série atualizada.'+warnC)}
   else if(mode==='editOcc'){const r=S.series.find(x=>x.id===f.dataset.id);if(!r)return;r.skip=[...(r.skip||[]),f.dataset.day];S.tasks.push({id:nid(),title,type,date,time,end,notes,done:(r.done||[]).includes(f.dataset.day),created:Date.now(),fromSeries:r.id});save('series','tasks');closeSheet();if(time&&type!=='estudo'&&(memo={},planDay(date)))offerReorg(date);else toast('Só este dia foi alterado.'+warnC)}
  },
@@ -1979,8 +1992,8 @@ const FORMS={
  quick:f=>{const ls=String(D.qkTxt||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!ls.length)return;const msgs=[];
   for(const l of ls){const q=parseQuick(l);const id=nid();
    if(q.rec!=='none'){S.series.push({id,title:q.title,type:q.type,time:q.time,end:q.end||'',start:q.date,rule:q.rec,skip:[],done:[]});QK_RECENT.unshift({k:'ser',id});msgs.push(`${q.title} → ${recLabel(q.rec,q.date).toLowerCase()}${q.time?' '+hm(q.time):''}`)}
-   else{S.tasks.push({id,title:q.title,type:q.type,date:q.date,time:q.time,end:q.end||'',fixed:true,done:false,created:Date.now()});QK_RECENT.unshift({k:'task',id});msgs.push(`${q.title} → ${dLabel(q.date)}${q.time?' '+hm(q.time):''}`)}}
-  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks','series');toast(ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`);
+   else{S.tasks.push({id,title:q.title,type:q.type,date:q.date,time:q.time,end:q.end||'',fixed:true,done:false,created:Date.now(),...(q.endDate?{endDate:q.endDate}:{})});QK_RECENT.unshift({k:'task',id});msgs.push(`${q.title} → ${q.endDate?dLabel(q.date)+' até '+dLabel(q.endDate):dLabel(q.date)}${q.time?' '+hm(q.time):''}`)}}
+  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks','series');{const w=ls.length===1?quickConflicts(parseQuick(ls[0])):'';toast((ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`)+(w?` ⚠ Atenção: ${w}.`:''))}
   memo={};const rd=ls.map(parseQuick).filter(q=>q.rec==='none'&&q.time&&q.type!=='estudo').map(q=>q.date).find(d=>planDay(d));if(rd)offerReorg(rd)},
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
  addExp:f=>{const v=parseBRL(D.mxV);const name=(D.mxName||'').trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#mxDate').value||today()});D.mxName='';D.mxV='';save('money')},
