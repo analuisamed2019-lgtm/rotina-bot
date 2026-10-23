@@ -1267,13 +1267,33 @@ function offerReorg(ds){memo={};if(ds&&planDay(ds))setTimeout(()=>reorgSheet(ds)
 function conflictsFor(ds,time,end,skipId){if(!time)return [];const a=toMin(time),b=end&&end>time?toMin(end):a+60;return busyOn(ds,skipId).filter(x=>a<x.b&&b>x.a).map(x=>x.label)}
 const shiftsIn=(a,b)=>S.shifts.filter(x=>x.date>=a&&x.date<=b).sort((x,y)=>x.date.localeCompare(y.date));
 function quickConflicts(q){if(q.endDate){const sh=shiftsIn(q.date,q.endDate);return sh.length?`tem ${sh.length} plantão(ões) nesse período: ${sh.slice(0,6).map(x=>dLabel(x.date)).join(', ')}${sh.length>6?'…':''}`:''}const c=conflictsFor(q.date,q.time,q.end);return c.length?`coincide com ${c.join(' e ')}`:''}
+// texto com "plantão" vira plantão de verdade (com valor), não tarefa: "plantão porta sábado 7 às 19", "plantão noturno dia 30", "plantão toda sexta"
+function parseShiftText(raw){
+ if(!/plant[aã]o|plant[oõ]es/i.test(raw||''))return null;
+ let txt=String(raw).replace(/\b(tutora|tutor|porta)\b/ig,' ').replace(/\bnotur(no|na)\b/ig,' ');
+ // horário "7 às 19", "11-21", "7h às 19h" (sem confundir com datas como "18 a 21/11" ou "dia 5")
+ let t0='',t1='';{const m=txt.match(/(?<![\d\/]|dia\s)(\d{1,2})(?:[:h](\d{2})|h)?\s*(?:às|as|a|até|ate|-|–)\s*(\d{1,2})(?:[:h](\d{2})|h)?(?![\d\/])/i);
+  if(m&&+m[1]<24&&+m[3]<24){t0=pad(+m[1])+':'+(m[2]||'00');t1=pad(+m[3])+':'+(m[4]||'00');txt=txt.replace(m[0],' ')}}
+ const q=parseQuick(txt);
+ const kind=/\bporta\b/i.test(raw)?'porta':'tutora';let start=t0||q.time,end=t0?t1:q.end;
+ if(!start){if(/notur|\bnoite\b/i.test(raw)){start='19:00';end='07:00'}else{start='07:00';end='19:00'}}
+ else if(!end){const hh=(raw.match(/(\d{1,2})\s*(?:h|horas)\s*(?:de\s+)?(?:plant|dura)/i)||raw.match(/\bde\s+(\d{1,2})\s*(?:h|horas)\b/i)||[])[1];const e=(toMin(start)+(hh?+hh:12)*60)%1440;end=m2t(e)}
+ const rec=['weekly','odd','even'].includes(q.rec)?q.rec:'none';
+ const s={date:q.date,start,end,kind,v12:S.settings.rates[kind],rec,guess:q.guess};
+ return s;
+}
+const shiftLine=x=>`Plantão ${kindName(x.kind)} · ${x.rec!=='none'?recLabel(x.rec,x.date)+' · começa ':''}${dLabel(x.date)} · ${hm(x.start)}–${hm(x.end)} · ${f1(shiftHours(x)).replace(',0','')} h · ${brl0(shiftValue(x))}${shiftNight(x)?' · noturno':''}`;
+function addShiftFromText(x){
+ if(x.rec!=='none'){const id=nid();S.rules.push({id,par:x.rec==='weekly'?'all':x.rec,start:x.date,t0:x.start,t1:x.end,kind:x.kind,upto:addD(x.date,-1)});genShifts();return {k:'rule',id}}
+ const id=nid();S.shifts.push({id,date:x.date,start:x.start,end:x.end,kind:x.kind,notes:'',v12:x.v12});return {k:'shift',id};
+}
 function quickPrevHTML(txt){const ls=String(txt||'').split('\n').map(x=>x.trim()).filter(Boolean).slice(0,20);
- if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>terapia toda quinta par 16h por 50 min</i> · <i>pagar aluguel todo dia 10</i> · <i>lembrete amanhã ligar para Carol</i>.</p>';
- return ls.map(l=>{const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b>${q.rec!=='none'?`<span class="tiny" style="color:var(--accent);font-weight:700">↻ ${recLabel(q.rec,q.date)}</span>`:''}<span class="tiny muted">${q.rec!=='none'?'começa ':''}${dLabel(q.date)}${q.endDate?' até '+dLabel(q.endDate)+` (${diffD(q.date,q.endDate)+1} dias)`:''}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
+ if(!ls.length)return '<p class="tiny faint" style="margin:0">Uma atividade por linha. Ex.: <i>dentista terça às 15h</i> · <i>reunião contador dia 20 das 14 às 15</i> · <i>terapia toda quinta par 16h por 50 min</i> · <i>pagar aluguel todo dia 10</i> · <i>lembrete amanhã ligar para Carol</i> · <i>plantão porta sábado 7 às 19</i> (vira plantão, com valor).</p>';
+ return ls.map(l=>{const sq=parseShiftText(l);if(sq){const c=sq.rec==='none'?S.shifts.filter(x=>x.date===sq.date).length:0;return `<div class="qk-row"><span class="dot" style="background:${T('plantao').c}"></span><span class="grow"><b>${h(shiftLine(sq))}</b><span class="tiny muted">Entra como plantão: soma nas finanças e aparece no calendário de plantões${sq.guess?' · sem data no texto, fica para hoje':''}</span>${c?`<span class="warn">⚠ já existe plantão nesse dia</span>`:''}</span></div>`}const q=parseQuick(l),c=quickConflicts(q);return `<div class="qk-row"><span class="dot" style="background:${T(q.type).c}"></span><span class="grow"><b>${h(q.title)}</b>${q.rec!=='none'?`<span class="tiny" style="color:var(--accent);font-weight:700">↻ ${recLabel(q.rec,q.date)}</span>`:''}<span class="tiny muted">${q.rec!=='none'?'começa ':''}${dLabel(q.date)}${q.endDate?' até '+dLabel(q.endDate)+` (${diffD(q.date,q.endDate)+1} dias)`:''}${q.guess?' (hoje: sem data no texto)':''}${q.time?' · '+hm(q.time)+(q.end?'–'+hm(q.end):''):' · sem horário'} · ${h(T(q.type).n)}</span>${c?`<span class="warn">⚠ ${c}</span>`:''}</span></div>`}).join('')}
 const recLabel=(r,ds)=>{const g=P(ds).getDay(),w=WDL[g],td=g===0||g===6?'Todo':'Toda';return {daily:'Todo dia',weekly:`${td} ${w}`,odd:`${td} ${w} de semana ímpar`,even:`${td} ${w} de semana par`,biweekly:`A cada 2 semanas (${w})`,monthly:`Todo dia ${P(ds).getDate()}`}[r]||''};
 let QK_RECENT=[];
 function vQuick(){
- const rec=QK_RECENT.map(x=>x.k==='ser'?{...(S.series.find(r=>r.id===x.id)||{}),k:'ser',date:(S.series.find(r=>r.id===x.id)||{}).start}:{...(findTask(x.id)||{}),k:'task'}).filter(t=>t.id);
+ const rec=QK_RECENT.map(x=>x.k==='shift'?(s=>s?{...s,k:'shift',title:'Plantão '+kindName(s.kind)+' · '+brl0(shiftValue(s)),type:'plantao',time:s.start,end:s.end}:{})(S.shifts.find(y=>y.id===x.id)):x.k==='rule'?(r=>r?{id:r.id,k:'rule',title:'Plantão fixo '+kindName(r.kind)+' · '+ruleLabel(r),type:'plantao',date:r.start,time:r.t0,end:r.t1}:{})(S.rules.find(y=>y.id===x.id)):x.k==='ser'?{...(S.series.find(r=>r.id===x.id)||{}),k:'ser',date:(S.series.find(r=>r.id===x.id)||{}).start}:{...(findTask(x.id)||{}),k:'task'}).filter(t=>t.id);
  return `<div class="ph"><div><h1>Agendar</h1><div class="sub">Compromissos com dia certo: entram direto na agenda e nunca são remanejados</div></div></div>
  <div class="cols"><section class="card span2"><form data-f="quick"><label class="field"><span>O que e quando</span><textarea class="in" id="qkTxt" data-d rows="3" placeholder="dentista terça às 15h&#10;terapia toda quinta par 16h">${h(D.qkTxt||'')}</textarea></label>
  <div class="qk-prev" id="qkPrev">${quickPrevHTML(D.qkTxt)}</div>
@@ -1890,7 +1910,7 @@ const ACT={
  cmdCancel:()=>{CMD=null;AI.cmd=null;render()},
  attDel:async el=>{if(!armed(el))return;const {k,id,f,day}=el.dataset,o=attObj(k,id);if(!o)return;
   o.files=(o.files||[]).filter(x=>x.id!==f);save(k==='task'?'tasks':'series');try{const A=await getAssets();if(A)await A.delete(f)}catch(e){}toast('Anexo removido.');reopenItem(k,id,day)},
- quickUndo:el=>{const id=el.dataset.id;if(el.dataset.k==='ser'){S.series=S.series.filter(x=>x.id!==id);save('series')}else{S.tasks=S.tasks.filter(x=>x.id!==id);save('tasks')}QK_RECENT=QK_RECENT.filter(x=>x.id!==id);render();toast('Desfeito.')},
+ quickUndo:el=>{const id=el.dataset.id;if(el.dataset.k==='shift'){S.shifts=S.shifts.filter(x=>x.id!==id);save('shifts')}else if(el.dataset.k==='rule'){S.shifts=S.shifts.filter(x=>x.rule!==id);S.rules=S.rules.filter(x=>x.id!==id);save('rules','shifts')}else if(el.dataset.k==='ser'){S.series=S.series.filter(x=>x.id!==id);save('series')}else{S.tasks=S.tasks.filter(x=>x.id!==id);save('tasks')}QK_RECENT=QK_RECENT.filter(x=>x.id!==id);render();toast('Desfeito.')},
  quickTab:()=>{closeAll();ACT.tab({dataset:{v:'agendar'}});setTimeout(()=>document.getElementById('qkTxt')?.focus(),50)},
  cardOpen:el=>{const t=today();cardSheet(el.dataset.cyc||cycleOf(t),!!el.dataset.final)},
  cardDel:el=>{if(!armed(el))return;S.card.entries=S.card.entries.filter(e=>e.id!==el.dataset.id);save('card')},
@@ -2009,6 +2029,7 @@ const FORMS={
   if(!title||!date)return;
   const notes=($('#tfNotes')?.value||'').trim();
   const skipC=mode==='editTask'||mode==='editSeries'?f.dataset.id:null;const cf=conflictsFor(date,time,end,skipC);const warnC=cf.length?` ⚠ Coincide com ${cf.join(' e ')}.`:'';
+  if(mode==='new'&&/^\s*plant[aã]o/i.test(title)){const kind=/porta/i.test(title)?'porta':'tutora';const x={date,start:time||'07:00',end:time?(end||m2t((toMin(time)+720)%1440)):'19:00',kind,v12:S.settings.rates[kind],rec:['weekly','odd','even'].includes(rec)?rec:'none'};addShiftFromText(x);save('shifts','rules');closeSheet();toast('Salvo como plantão: '+shiftLine(x));return}
   if(mode==='new'){
    if(rec==='none')S.tasks.push({id:nid(),title,type,date,time,end,notes,done:false,created:Date.now(),...(endDate?{endDate,fixed:true}:{})});
    else S.series.push({id:nid(),title,type,time,end,notes,start:date,rule:rec,skip:[],done:[]});
@@ -2038,10 +2059,11 @@ const FORMS={
  invOther:f=>{const m=f.dataset.m,v=parseBRL($('#ioV').value);if(!(v>=0)){toast('Informe o valor (ex.: 3.500,00).');return}if(v>0)S.money.inv.push({id:nid(),desc:'Aporte mensal',v,date:$('#ioDate').value||invDateFor(m),ts:Date.now()});S.money.plan[m]={st:v>0?'done':'skip',at:Date.now()};save('money');closeSheet();toast('Aporte registrado.')},
  cardInvT:f=>{const v=parseBRL($('#ciT').value);if(!(v>=0)){toast('Valor inválido.');return}S.card.investT=v;save('card');closeSheet();toast('Aporte mensal salvo.')},
  quick:f=>{const ls=String(D.qkTxt||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!ls.length)return;const msgs=[];
-  for(const l of ls){const q=parseQuick(l);const id=nid();
+  for(const l of ls){const sq=parseShiftText(l);if(sq){const r=addShiftFromText(sq);QK_RECENT.unshift(r);msgs.push(shiftLine(sq));continue}
+   const q=parseQuick(l);const id=nid();
    if(q.rec!=='none'){S.series.push({id,title:q.title,type:q.type,time:q.time,end:q.end||'',start:q.date,rule:q.rec,skip:[],done:[]});QK_RECENT.unshift({k:'ser',id});msgs.push(`${q.title} → ${recLabel(q.rec,q.date).toLowerCase()}${q.time?' '+hm(q.time):''}`)}
    else{S.tasks.push({id,title:q.title,type:q.type,date:q.date,time:q.time,end:q.end||'',fixed:true,done:false,created:Date.now(),...(q.endDate?{endDate:q.endDate}:{})});QK_RECENT.unshift({k:'task',id});msgs.push(`${q.title} → ${q.endDate?dLabel(q.date)+' até '+dLabel(q.endDate):dLabel(q.date)}${q.time?' '+hm(q.time):''}`)}}
-  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks','series');{const w=ls.length===1?quickConflicts(parseQuick(ls[0])):'';toast((ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`)+(w?` ⚠ Atenção: ${w}.`:''))}
+  QK_RECENT=QK_RECENT.slice(0,10);D.qkTxt='';save('tasks','series','shifts','rules');{const w=ls.length===1&&!parseShiftText(ls[0])?quickConflicts(parseQuick(ls[0])):'';toast((ls.length===1?`Agendado: ${msgs[0]}`:`${ls.length} compromissos agendados.`)+(w?` ⚠ Atenção: ${w}.`:''))}
   memo={};const rd=ls.map(parseQuick).filter(q=>q.rec==='none'&&q.time&&q.type!=='estudo').map(q=>q.date).find(d=>planDay(d));if(rd)offerReorg(rd)},
  expSheet:f=>{const v=parseBRL($('#esV').value);const name=$('#esName').value.trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#esDate').value||today()});save('money');closeSheet();toast('Gasto registrado.')},
  addExp:f=>{const v=parseBRL(D.mxV);const name=(D.mxName||'').trim();if(!name||!(v>0)){toast('Informe nome e valor (ex.: 45,90).');return}S.money.exp.push({id:nid(),name,v,date:$('#mxDate').value||today()});D.mxName='';D.mxV='';save('money')},
@@ -2064,6 +2086,7 @@ const FORMS={
  },
  aiFit:async()=>{
   const q=(D.aiFitTxt||'').trim();if(!q)return;
+  {const sq=parseShiftText(q);if(sq){addShiftFromText(sq);D.aiFitTxt='';save('shifts','rules');toast('Plantão adicionado: '+shiftLine(sq));return}}
   if(/^\s*(lembretes?|me\s+lembr|lembrar|lembra\s)/i.test(q)){const p=parseQuick(q);S.tasks.push({id:nid(),title:p.title,type:'lembrete',date:p.date,time:p.time,end:'',fixed:true,done:false,created:Date.now()});D.aiFitTxt='';save('tasks');toast(`Lembrete: ${p.title} → ${dLabel(p.date)}${p.time?' '+hm(p.time):''}`);return}
   if(!sampleFn)return;
   const ctl=new AbortController();AI.fit={busy:true,text:'',err:'',ctl};FIT=null;render();
