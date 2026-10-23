@@ -1002,7 +1002,8 @@ function cEnergy(){
  const t=today();const e=S.energy[t]||{};
  const top=e.m?`<div class="e-now"><div><div class="tiny muted">Hoje ao acordar</div><div class="e-big num">${e.m}<small>/5</small></div></div><div class="btns"><button class="btn sm" data-a="eNight">${e.n?`Noite: ${e.n}/5`:'Registrar noite'}</button><button class="btn sm" data-a="eReset" aria-label="Trocar nota da manhã">Trocar</button></div></div>`
  :`<div class="tiny muted" style="margin-bottom:6px">Como você acordou hoje?</div><div class="scale">${[1,2,3,4,5].map(n=>`<button data-a="eM" data-v="${n}">${n}</button>`).join('')}</div><div class="scale-l"><span>exausta</span><span>ótima</span></div>`;
- return `<section class="card" aria-label="Energia"><div class="card-h"><h3>Energia</h3><button class="link" data-a="tab" data-v="energia">Padrões</button></div>${top}<div style="margin-top:10px">${spark(7)}</div></section>`;
+ const ms=eMissing(3);
+ return `<section class="card" aria-label="Energia"><div class="card-h"><h3>Energia</h3><button class="link" data-a="tab" data-v="energia">Padrões</button></div>${top}<div class="btns" style="margin-top:8px"><button class="btn sm" data-a="eSheet" data-ds="${addD(t,-1)}">${ms.length?`Completar dias anteriores (${ms.length})`:'Registrar outro dia'}</button></div><div style="margin-top:10px">${spark(7)}</div></section>`;
 }
 const TIPS=[
  ['Cochilo de 10–20 min','Curto o bastante para não acordar grogue; melhora alerta e humor por 1–3 h.','Brooks & Lack, Sleep 2006'],
@@ -1385,6 +1386,21 @@ ${cardSection(cur)}
 
 /* ---------- Energia ---------- */
 const shiftPills=ds=>S.shifts.filter(x=>x.date===ds).sort((a,b)=>a.start.localeCompare(b.start)).map(x=>` <span class="pill ${shiftHours(x)>=10?'bad':'warn'}">plantão ${hm(x.start)}–${hm(x.end)} · ${f1(shiftHours(x)).replace(',0','')} h</span>`).join('');
+// registrar energia de outro dia (esqueceu de anotar): manhã, noite e o que pesou
+function energySheet(ds){
+ ds=ds&&ds<=today()?ds:today();const e=S.energy[ds]||{};
+ const sc=(f,v)=>`<div class="scale">${[1,2,3,4,5].map(n=>`<button data-a="eSet" data-ds="${ds}" data-f="${f}" data-v="${n}" aria-pressed="${v===n}">${n}</button>`).join('')}</div>`;
+ sheet('Registrar energia',`<label class="field"><span>Dia</span><input class="in" type="date" id="esDay" value="${ds}" max="${today()}"></label>
+ <div class="row" style="justify-content:space-between;align-items:center;margin:-4px 0 8px"><button class="btn sm" data-a="eSheet" data-ds="${addD(ds,-1)}">‹ ${dLabel(addD(ds,-1))}</button><b class="small">${cap1(dLong(ds))}${anyShiftOn(ds)?' · plantão':''}</b>${ds<today()?`<button class="btn sm" data-a="eSheet" data-ds="${addD(ds,1)}">${dLabel(addD(ds,1))} ›</button>`:'<span></span>'}</div>
+ <div class="sh-sec"><h4>Ao acordar</h4>${sc('m',e.m)}<div class="scale-l"><span>exausta</span><span>ótima</span></div></div>
+ <div class="sh-sec"><h4>À noite: como foi o dia</h4>${sc('n',e.n)}</div>
+ <div class="sh-sec"><h4>O que pesou</h4><div class="tags">${TAGS.map(g=>`<button class="tagb" data-a="eSetTag" data-ds="${ds}" data-v="${g}" aria-pressed="${(e.tags||[]).includes(g)}">${g}</button>`).join('')}</div></div>
+ <p class="tiny faint" style="margin:0">Toque de novo no mesmo número para apagar. Salva na hora.</p>
+ <div class="btns"><button class="btn pri" data-a="closeSheet">Pronto</button></div>`,false,'energy');
+ liveSheet=()=>energySheet(ds);
+}
+// dias recentes sem registro (para lembrar de completar)
+const eMissing=n=>{const t=today(),o=[];for(let i=1;i<=n;i++){const ds=addD(t,-i),e=S.energy[ds]||{};if(!e.m||!e.n)o.push({ds,m:!e.m,n:!e.n})}return o};
 const TAGS=['plantão','plantão noturno','sono ruim','dormi bem','estudo pesado','treinei','dia leve','estresse'];
 function vEnergy(){
  const t=today(),e=S.energy[t]||{},st=eStats();
@@ -1396,6 +1412,8 @@ function vEnergy(){
   <div class="tiny muted" style="margin-bottom:6px">Ao acordar</div><div class="scale">${[1,2,3,4,5].map(n=>`<button data-a="eM" data-v="${n}" aria-pressed="${e.m===n}">${n}</button>`).join('')}</div><div class="scale-l"><span>exausta</span><span>ótima</span></div>
   <div class="tiny muted" style="margin:14px 0 6px">À noite: como foi o dia</div><div class="scale">${[1,2,3,4,5].map(n=>`<button data-a="eN" data-v="${n}" aria-pressed="${e.n===n}">${n}</button>`).join('')}</div>
   <div class="tiny muted" style="margin:14px 0 6px">O que pesou</div><div class="tags">${TAGS.map(g=>`<button class="tagb" data-a="eTag" data-v="${g}" aria-pressed="${(e.tags||[]).includes(g)}">${g}</button>`).join('')}</div>
+  <div class="btns" style="margin-top:14px"><button class="btn sm" data-a="eSheet" data-ds="${addD(t,-1)}">Registrar outro dia</button></div>
+  ${(()=>{const ms=eMissing(7);return ms.length?`<div class="tiny muted" style="margin:12px 0 6px">Faltou registrar (últimos 7 dias)</div><div class="tags">${ms.map(x=>`<button class="tagb" data-a="eSheet" data-ds="${x.ds}">${dLabel(x.ds)} · ${x.m&&x.n?'manhã e noite':x.m?'manhã':'noite'}</button>`).join('')}</div>`:''})()}
  </section>
  <section class="card"><div class="card-h"><h3>Seus padrões</h3></div>
   ${st.n<7?`<p class="small muted" style="margin:0 0 6px">Ainda aprendendo: ${st.n} registro${st.n===1?'':'s'}. Com uma semana de manhãs a previsão fica bem melhor.</p>`:''}
@@ -1443,7 +1461,8 @@ const OPS_DOC=`Operações (use só estas; datas AAAA-MM-DD; horas HH:MM; weekda
 {"op":"add_series","title":"…","type":"pessoal|estudo|academia|yoga","weekday":4,"weeks":"all|odd|even","time":"16:00","end":"","from":"…"}
 {"op":"end_series","id":"…","from":"…"}
 {"op":"skip_day","id":"<id da série>","date":"…"}
-{"op":"set_rate","kind":"tutora|porta","value12h":2200}`;
+{"op":"set_rate","kind":"tutora|porta","value12h":2200}
+{"op":"set_energy","date":"… (hoje ou passado)","morning":1-5 ou null,"night":1-5 ou null,"tags":["sono ruim",…] (opcional; só destas: plantão, plantão noturno, sono ruim, dormi bem, estudo pesado, treinei, dia leve, estresse)}`;
 function cmdContext(){const t=today(),L=[];
  L.push(`Hoje: ${dLong(t)} (${t}), ${weekLbl(t)}.`);
  L.push('\nPLANTÕES FIXOS (geram plantões automaticamente):');
@@ -1470,6 +1489,7 @@ function cmdDescribe(o){const t=today();
   case 'add_fixed_shift':{if(!(o.weekday>=0&&o.weekday<=6)||!okD(o.from)||!okT(o.start)||!okT(o.end)||!o.start||!o.end||!['tutora','porta'].includes(o.kind))return null;const w=o.weeks||'all';const f=firstWd(o.from,+o.weekday,w);return f?`Novo plantão fixo: toda ${wdn(o.weekday)} ${wk(w)} · ${kindName(o.kind)} ${hm(o.start)}–${hm(o.end)} · começa ${dLabel(f)}`:null}
   case 'add_shift':return okD(o.date)&&o.start&&o.end&&['tutora','porta'].includes(o.kind)?`Novo plantão: ${dLabel(o.date)} · ${kindName(o.kind)} ${hm(o.start)}–${hm(o.end)}`:null;
   case 'delete_shift':{const x=SH(o.id);return x?`Excluir plantão: ${dLabel(x.date)} · ${kindName(x.kind)} ${hm(x.start)}–${hm(x.end)}`:null}
+  case 'set_energy':{const ok=v=>v==null||(v>=1&&v<=5);if(!okD(o.date)||o.date>today()||!ok(o.morning)||!ok(o.night)||(o.morning==null&&o.night==null&&!(o.tags||[]).length))return null;return `Energia de ${dLabel(o.date)}: ${o.morning!=null?'manhã '+o.morning:''}${o.morning!=null&&o.night!=null?', ':''}${o.night!=null?'noite '+o.night:''}${(o.tags||[]).length?' · '+o.tags.filter(g=>TAGS.includes(g)).join(', '):''}`}
   case 'add_task':return o.title&&okD(o.date)&&okT(o.time)?`Adicionar: ${o.type==='lembrete'?'lembrete ':''}${o.title} · ${dLabel(o.date)}${okD(o.end_date)&&o.end_date>o.date?' até '+dLabel(o.end_date):''}${o.time?' '+hm(o.time):''}${o.end?'–'+hm(o.end):''}`:null;
   case 'move_task':{const x=TK(o.id);return x&&okD(o.date)&&okT(o.time)?`Mover: ${x.title} · ${dLabel(x.date)} → ${dLabel(o.date)}${o.time?' '+hm(o.time):''}`:null}
   case 'delete_task':{const x=TK(o.id);return x?`Excluir: ${x.title} (${dLabel(x.date)})`:null}
@@ -1484,6 +1504,7 @@ function cmdApply(o){
   case 'add_fixed_shift':{const w=o.weeks||'all',f=firstWd(o.from,+o.weekday,w);S.rules.push({id:nid(),par:w,start:f,t0:o.start,t1:o.end,kind:o.kind,upto:addD(f,-1)});break}
   case 'add_shift':S.shifts.push({id:nid(),date:o.date,start:o.start,end:o.end,kind:o.kind,v12:S.settings.rates[o.kind]});break;
   case 'delete_shift':removeShift(o.id);break;
+  case 'set_energy':{const e={...(S.energy[o.date]||{})};if(o.morning!=null)e.m=+o.morning;if(o.night!=null)e.n=+o.night;const tg=(o.tags||[]).filter(g=>TAGS.includes(g));if(tg.length)e.tags=[...new Set([...(e.tags||[]),...tg])];S.energy[o.date]=e;break}
   case 'add_task':S.tasks.push({id:nid(),title:String(o.title).slice(0,120),type:S.settings.types[o.type]&&o.type!=='plantao'?o.type:'pessoal',date:o.date,time:o.time||'',end:o.end||'',fixed:o.fixed!==false,done:false,created:Date.now(),...(okD(o.end_date)&&o.end_date>o.date?{endDate:o.end_date,fixed:true}:{})});break;
   case 'move_task':{const x=findTask(o.id);x.date=o.date;if(o.time)x.time=o.time;break}
   case 'delete_task':S.tasks=S.tasks.filter(x=>x.id!==o.id);break;
@@ -1700,7 +1721,7 @@ function dayPanel(ds){
   const hasN=it.o&&(it.o.notes||(it.o.files||[]).length)&&it.k!=='gcal';const sub=(it.missed?'não realizada · ':'')+(hasN?'com notas · ':'')+(it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${it.span?`dia ${it.span[0]} de ${it.span[1]} · `:''}${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`);
   return `<li><span class="tm">${tm}</span><span class="dot" style="background:${T(it.type).c}"></span><button class="grow" data-a="open" data-k="${it.k}" data-id="${it.id}" data-day="${ds}"><b>${h(title)}</b><span class="tiny faint">${h(sub)}</span></button>${it.k!=='shift'?`<span class="st2">${stBtns(it,ds)}</span>`:''}</li>`;
  }).join('');
- return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b></span><span>${weekLbl(ds)}</span></div>
+ return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b>${ds<=today()?` <button class="link" data-a="eSheet" data-ds="${ds}">${e&&e.m&&e.n?'editar':'registrar'}</button>`:''}</span><span>${weekLbl(ds)}</span></div>
  ${its.length?`<ul class="lst tl">${rows}</ul>`:'<p class="empty">Dia livre, nada agendado.</p>'}
  ${its.length&&ds>=today()?(()=>{const w=freeWindows(ds);return `<p class="small" style="margin:10px 0 0"><b>Livre de verdade:</b> ${w.length?w.join(' · '):'<span class="muted">nada (só transições e descanso)</span>'}</p>`})():''}
  ${ds>=today()&&planDay(ds)?`<p class="small" style="margin:10px 0 0;color:var(--warn)">⚠ O estudo deste dia bate com outro compromisso. <button class="btn sm" data-a="reorg" data-ds="${ds}">Reorganizar o dia</button></p>`:''}
@@ -1865,7 +1886,7 @@ const ACT={
  gcMiss:el=>{setStatus({k:'gev',id:el.dataset.id,day:el.dataset.day},'missed')},
  cmdApply:()=>{if(!CMD)return;const sel=CMD.ops.filter(o=>o.on);let n=0;
   for(const o of sel){if(!cmdDescribe(o))continue;try{cmdApply(o);n++}catch(e){}}
-  genShifts();CMD=null;AI.cmd=null;D.aiCmdTxt='';save('rules','shifts','series','tasks','settings');toast(`${n} mudança${n===1?'':'s'} aplicada${n===1?'':'s'}.`)},
+  genShifts();CMD=null;AI.cmd=null;D.aiCmdTxt='';memo={};save('rules','shifts','series','tasks','settings','energy');toast(`${n} mudança${n===1?'':'s'} aplicada${n===1?'':'s'}.`)},
  cmdCancel:()=>{CMD=null;AI.cmd=null;render()},
  attDel:async el=>{if(!armed(el))return;const {k,id,f,day}=el.dataset,o=attObj(k,id);if(!o)return;
   o.files=(o.files||[]).filter(x=>x.id!==f);save(k==='task'?'tasks':'series');try{const A=await getAssets();if(A)await A.delete(f)}catch(e){}toast('Anexo removido.');reopenItem(k,id,day)},
@@ -1924,10 +1945,13 @@ const ACT={
  eN:el=>{const t=today();S.energy[t]={...(S.energy[t]||{}),n:+el.dataset.v};save('energy')},
  eTag:el=>{const t=today();const e={...(S.energy[t]||{})};const g=el.dataset.v;const tg=new Set(e.tags||[]);tg.has(g)?tg.delete(g):tg.add(g);e.tags=[...tg];S.energy[t]=e;save('energy')},
  eReset:()=>{const t=today();const e={...(S.energy[t]||{})};delete e.m;S.energy[t]=e;save('energy')},
+ eSheet:el=>energySheet(el.dataset.ds),
+ eSet:el=>{const {ds,f}=el.dataset,v=+el.dataset.v;if(!ds||ds>today())return;const e={...(S.energy[ds]||{})};if(e[f]===v)delete e[f];else e[f]=v;if(!e.m&&!e.n&&!(e.tags||[]).length)delete S.energy[ds];else S.energy[ds]=e;memo={};save('energy')},
+ eSetTag:el=>{const ds=el.dataset.ds,g=el.dataset.v;if(!ds||ds>today())return;const e={...(S.energy[ds]||{})};const tg=new Set(e.tags||[]);tg.has(g)?tg.delete(g):tg.add(g);e.tags=[...tg];S.energy[ds]=e;memo={};save('energy')},
  eNight:()=>{const e=S.energy[today()]||{};sheet('Como foi o dia',`<div class="sh-sec"><h4>Nota do dia</h4><div class="scale">${[1,2,3,4,5].map(n=>`<button data-a="eNs" data-v="${n}" aria-pressed="${e.n===n}">${n}</button>`).join('')}</div></div><div class="sh-sec"><h4>O que pesou</h4><div class="tags">${TAGS.map(g=>`<button class="tagb" data-a="eTags" data-v="${g}" aria-pressed="${(e.tags||[]).includes(g)}">${g}</button>`).join('')}</div></div><div class="btns"><button class="btn pri" data-a="closeSheet">Pronto</button></div>`)},
  eNs:el=>{ACT.eN(el);el.parentElement.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===el))},
  eTags:el=>{ACT.eTag(el);el.setAttribute('aria-pressed',el.getAttribute('aria-pressed')!=='true')},
- eBar:el=>{const ds=el.dataset.ds,e=S.energy[ds]||{};const r=$('#eRead');if(r)r.textContent=`${dLong(ds)}: manhã ${e.m||'–'}${e.n?`, noite ${e.n}`:''}${e.tags?.length?' · '+e.tags.join(', '):''}${anyShiftOn(ds)?' · plantão':''}`},
+ eBar:el=>{const ds=el.dataset.ds,e=S.energy[ds]||{};const r=$('#eRead');if(r)r.innerHTML=`${h(dLong(ds))}: manhã ${e.m||'–'}${e.n?`, noite ${e.n}`:''}${e.tags?.length?' · '+h(e.tags.join(', ')):''}${anyShiftOn(ds)?' · plantão':''} <button class="link" data-a="eSheet" data-ds="${ds}">Editar</button>`},
  notesAll:()=>sheet('Todas as notas',`<ul class="notes-list" style="margin:0">${sortedNotes().map(noteLi).join('')}</ul>`),
  noteOpen:el=>{const n=S.notes.find(x=>x.id===el.dataset.id);if(n)noteSheet(n)},
  notePin:el=>{const n=S.notes.find(x=>x.id===el.dataset.id);if(!n)return;n.pin=!n.pin;save('notes');closeSheet()},
@@ -1969,6 +1993,7 @@ document.addEventListener('change',e=>{
  if(el.dataset.attach&&el.files&&el.files.length)attachFiles(el);
  if(el.dataset.color){S.settings.types[el.dataset.color].c=el.value;save('settings')}
  if(el.dataset.a2==='moveTaskInput'&&el.value){ACT.moveTask({dataset:{id:el.dataset.id,ds:el.value}})}
+ if(el.id==='esDay'&&el.value)energySheet(el.value);
  if(el.dataset.cmd!=null&&CMD){const o=CMD.ops[+el.dataset.cmd];if(o){o.on=el.checked;render()}}
  if(el.dataset.mw==='on'&&MW){MW.items[+el.dataset.i].on=el.checked;render()}
  if(el.id==='tfType'){const l=$('#tfTitleL');if(l)l.textContent=el.value==='estudo'?'Tema (na agenda aparece só "Estudo")':'Título'}
