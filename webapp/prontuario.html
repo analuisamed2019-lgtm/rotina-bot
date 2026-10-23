@@ -208,6 +208,18 @@ textarea.in{height:auto;padding:9px 11px;resize:vertical;line-height:1.4}
 .scale-l{display:flex;justify-content:space-between;font-size:11px;color:var(--fg-3);margin-top:4px}
 .e-now{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .e-big{font-family:var(--font-d);font-size:30px;font-weight:700;line-height:1}
+.st-in{display:flex;align-items:center;justify-content:center;gap:18px;margin:4px 0 10px}.st-v{display:flex;flex-direction:column;align-items:center;min-width:90px}
+.st-pm{width:44px;height:44px;border:1px solid var(--line-2);border-radius:12px;font-size:22px;font-weight:700}
+.st-chips .tagb{min-width:46px}
+.hm-w{display:flex;flex-direction:column;gap:3px;margin-top:12px;overflow-x:auto}
+.hm-r{display:grid;grid-template-columns:38px 1fr 42px;align-items:center;gap:6px}
+.hm-m small{font-weight:500;margin-left:1px;opacity:.7}.hm-m{font-size:11px;white-space:nowrap;font-weight:700;color:var(--fg-2);text-transform:capitalize}.hm-t{font-size:11px;text-align:right;color:var(--fg-2)}
+.hm-d{display:grid;grid-template-columns:repeat(31,1fr);gap:2px;min-width:0}
+.hm{display:inline-block;aspect-ratio:1;min-width:6px;border-radius:2px;background:var(--line);cursor:pointer}
+.hm.off{opacity:.45}.hm.f{background:transparent;outline:1px dashed var(--line);outline-offset:-1px;cursor:default}
+.hm.l1{background:color-mix(in srgb,#3b82f6 30%,var(--surface))}.hm.l2{background:color-mix(in srgb,#3b82f6 52%,var(--surface))}.hm.l3{background:color-mix(in srgb,#3b82f6 75%,var(--surface))}.hm.l4{background:#3b82f6}
+.hm.miss{outline:1.5px solid var(--warn);outline-offset:-1.5px}
+.hm-lg{display:flex;align-items:center;gap:4px;margin-top:10px;flex-wrap:wrap}.hm-lg .hm{width:11px;cursor:default}
 .e-big small{font-size:14px;color:var(--fg-3);font-weight:500}
 .spark text{fill:var(--fg-3);font-size:10px;font-family:var(--font-b)}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
@@ -508,11 +520,12 @@ const SEED_RULES=[
  {id:'pB2',par:'even',start:'2026-10-13',t0:'11:00',t1:'21:00',kind:'porta'},
  {id:'pB3',par:'even',start:'2026-10-16',t0:'07:00',t1:'19:00',kind:'tutora'},
 ];
-const KEYS=['settings','notes','tasks','series','shifts','money','energy','notices','rules','card','mail'];
+const KEYS=['settings','notes','tasks','series','shifts','money','energy','notices','rules','card','mail','study'];
 const DEF=()=>({
  settings:{types:JSON.parse(JSON.stringify(DEF_TYPES)),rates:{tutora:2200,porta:2000},theme:'system'},
  notes:[],tasks:[],series:JSON.parse(JSON.stringify(SEED_SERIES)),shifts:[],
- money:{exp:[],fixed:[],inv:[],plan:{}},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES)),card:{closeDay:21,entries:[],metas:[],investT:5000,planFrom:'2026-10'},mail:{vip:[],mute:[]}
+ money:{exp:[],fixed:[],inv:[],plan:{}},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES)),card:{closeDay:21,entries:[],metas:[],investT:5000,planFrom:'2026-10'},mail:{vip:[],mute:[]},
+ study:{log:{},goal:7,days:[1,2,3,4]}
 });
 const LS='prontuario-v1';
 let S=DEF();
@@ -526,6 +539,7 @@ function fixShape(){
  S.settings.rates=Object.assign({tutora:2200,porta:2000},S.settings.rates||{});
  for(const k of ['exp','fixed','inv']) if(!Array.isArray(S.money[k])) S.money[k]=[];
  for(const k of ['vip','mute'])if(!Array.isArray(S.mail[k]))S.mail[k]=[];
+ if(!S.study.log||typeof S.study.log!=='object'||Array.isArray(S.study.log))S.study.log={};if(!(S.study.goal>0))S.study.goal=7;if(!Array.isArray(S.study.days)||!S.study.days.length)S.study.days=[1,2,3,4];
  if(!(S.card.closeDay>=1))S.card.closeDay=21;for(const k of ['entries','metas'])if(!Array.isArray(S.card[k]))S.card[k]=[];if(!(S.card.investT>=0))S.card.investT=5000;if(!S.card.planFrom)S.card.planFrom='2026-10';if(!S.money.plan||typeof S.money.plan!=='object'||Array.isArray(S.money.plan))S.money.plan={};
  let ch=false;
  for(const r of S.series)if(r.wk==='A'||r.wk==='B'){if(r.rule==='biweekly')r.rule=r.wk==='A'?'odd':'even';delete r.wk;ch=true}
@@ -926,9 +940,9 @@ function render(){
 
 /* ---------- Semana (tela inicial) ---------- */
 function vHome(){
- const notes=cNotes(),week=cWeek(),cal=cCal(),en=cEnergy(),av=cNotices(),st=cStudies(),mo=cMoneyMini();
- if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${cShiftCal()}${st}</div><div class="stack">${week}${cMonthDesk()}</div><div class="stack">${en}${av}${cMailMini()}${mo}</div></div>`;
- return `<div class="home">${notes}${cFitHome()}${cCmdHome()}${week}<div class="cards">${av}${cMailMini()}${en}${cal}${cShiftCal()}${st}${mo}</div></div>`;
+ const notes=cNotes(),week=cWeek(),cal=cCal(),en=cEnergy(),av=cNotices(),st=cStudies(),mo=cMoneyMini(),sl=cStudyLog();
+ if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${cShiftCal()}${st}</div><div class="stack">${week}${cMonthDesk()}</div><div class="stack">${sl}${en}${av}${cMailMini()}${mo}</div></div>`;
+ return `<div class="home">${notes}${cFitHome()}${cCmdHome()}${week}<div class="cards">${sl}${av}${cMailMini()}${en}${cal}${cShiftCal()}${st}${mo}</div></div>`;
 }
 function sortedNotes(){return [...S.notes].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.upd-a.upd)}
 function noteTime(ts){const d=new Date(ts);return `${d.getDate()} ${MO[d.getMonth()]}, ${pad(d.getHours())}:${pad(d.getMinutes())}`}
@@ -998,6 +1012,60 @@ function spark(n){
  return `<svg class="spark" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Energia de manhã nos últimos ${n} dias">${s}</svg>`;
 }
 function barPath(x,y,w,hh){const r=Math.min(4,hh,w/2);const b=y+hh;return `M${x},${b} V${y+r} Q${x},${y} ${x+r},${y} H${x+w-r} Q${x+w},${y} ${x+w},${y+r} V${b} Z`}
+/* ---------- Horas de estudo (residência): registro diário e visão do ano ---------- */
+const stH=ds=>{const v=S.study.log[ds];return v==null?null:(+v.h||0)};
+const isStudyDay=ds=>S.study.days.includes(P(ds).getDay());
+const fh1=v=>(Math.round(v*10)/10).toString().replace('.',',')+' h';
+const stStart=()=>{const ks=Object.keys(S.study.log).sort();return ks[0]&&ks[0]<'2026-10-19'?ks[0]:'2026-10-19'};
+function stRange(a,b){let tot=0,dias=0,plan=0,metaDays=0;for(let d=a;d<=b;d=addD(d,1)){const v=stH(d);if(v>0){tot+=v;dias++}if(isStudyDay(d))plan++}return {tot,dias,plan,meta:plan*S.study.goal}}
+function setStudy(ds,v){if(!ds||ds>today())return;const log={...S.study.log};if(v==null)delete log[ds];else log[ds]={h:Math.max(0,Math.min(16,Math.round(v*4)/4)),at:Date.now()};S.study={...S.study,log};save('study')}
+const stMissing=n=>{const t=today(),st=stStart(),o=[];for(let i=1;i<=n;i++){const ds=addD(t,-i);if(ds<st)break;if(isStudyDay(ds)&&stH(ds)==null)o.push(ds)}return o.reverse()};
+function stInput(ds){const v=stH(ds);return `<div class="st-in"><button class="icon-btn st-pm" data-a="stStep" data-ds="${ds}" data-v="-0.5" aria-label="Menos meia hora">−</button><div class="st-v"><b class="e-big num">${v==null?'–':fh1(v).replace(' h','')}</b><span class="tiny muted">${v==null?'sem registro':'horas'}</span></div><button class="icon-btn st-pm" data-a="stStep" data-ds="${ds}" data-v="0.5" aria-label="Mais meia hora">+</button></div>
+ <div class="tags st-chips">${[0,2,3,4,5,6,7,8].map(n=>`<button class="tagb" data-a="stSet" data-ds="${ds}" data-v="${n}" aria-pressed="${v===n}">${n===0?'não estudei':n+' h'}</button>`).join('')}</div>`}
+function cStudyLog(){
+ const t=today(),ws=monday(t),w=stRange(ws,addD(ws,6)),ms=stMissing(10),sd=isStudyDay(t);
+ const pct=w.meta?Math.min(100,Math.round(w.tot/w.meta*100)):0;
+ return `<section class="card" aria-label="Horas de estudo"><div class="card-h"><h3>Horas de estudo</h3><button class="link" data-a="tab" data-v="resumo">Ver o ano</button></div>
+ ${sd||stH(t)!=null?`<div class="tiny muted" style="margin-bottom:6px">Quanto você estudou hoje (${dLabel(t)})?</div>${stInput(t)}`:`<p class="small muted" style="margin:0 0 8px">Hoje não é dia de estudo planejado. <button class="link" data-a="stSheet" data-ds="${t}">Registrar mesmo assim</button></p>`}
+ <div class="prog" style="--c:${T('estudo').c};margin-top:10px"><div class="t"><span>Esta semana</span><span class="num">${fh1(w.tot)} de ${w.meta} h</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>
+ ${ms.length?`<div class="tiny muted" style="margin:10px 0 6px">Faltou anotar</div><div class="tags">${ms.map(d=>`<button class="tagb" data-a="stSheet" data-ds="${d}">${dLabel(d)}</button>`).join('')}</div>`:''}
+ <div class="btns" style="margin-top:8px"><button class="btn sm" data-a="stSheet" data-ds="${addD(t,-1)}">Outro dia</button></div></section>`;
+}
+function studySheet(ds){
+ ds=ds&&ds<=today()?ds:today();
+ sheet('Horas de estudo',`<label class="field"><span>Dia</span><input class="in" type="date" id="stDay" value="${ds}" max="${today()}"></label>
+ <div class="row" style="justify-content:space-between;align-items:center;margin:-4px 0 10px"><button class="btn sm" data-a="stSheet" data-ds="${addD(ds,-1)}">‹ ${dLabel(addD(ds,-1))}</button><b class="small">${cap1(dLong(ds))}${isStudyDay(ds)?'':' · fora dos dias de estudo'}</b>${ds<today()?`<button class="btn sm" data-a="stSheet" data-ds="${addD(ds,1)}">${dLabel(addD(ds,1))} ›</button>`:'<span></span>'}</div>
+ ${stInput(ds)}
+ ${stH(ds)!=null?`<div class="btns"><button class="btn sm danger" data-a="stDel" data-ds="${ds}">Apagar registro deste dia</button></div>`:''}
+ <div class="sh-sec"><h4>Planejamento</h4>
+  <div class="row" style="align-items:center"><span class="small">Meta por dia de estudo</span><button class="icon-btn st-pm" data-a="stGoal" data-v="-0.5" aria-label="Diminuir meta">−</button><b class="num">${fh1(S.study.goal)}</b><button class="icon-btn st-pm" data-a="stGoal" data-v="0.5" aria-label="Aumentar meta">+</button></div>
+  <div class="tiny muted" style="margin:10px 0 6px">Dias de estudo</div><div class="tags">${[1,2,3,4,5,6,0].map(g=>`<button class="tagb" data-a="stDay" data-v="${g}" aria-pressed="${S.study.days.includes(g)}">${WD[g]}</button>`).join('')}</div></div>
+ <div class="btns"><button class="btn pri" data-a="closeSheet">Pronto</button></div>`,false,'study');
+ liveSheet=()=>studySheet(ds);
+}
+// visão do ano: uma linha por mês, um quadradinho por dia (cor = horas em relação à meta)
+function cStudyYear(){
+ const t=today(),st=stStart(),tEnd=stH(t)==null?addD(t,-1):t;
+ const yr=stRange(st,tEnd),mo=stRange(ym(t)+'-01'>st?ym(t)+'-01':st,tEnd),wk=stRange(monday(t),t);
+ const avg=yr.dias?yr.tot/yr.dias:0,pct=yr.meta?Math.round(yr.tot/yr.meta*100):0;
+ let best=0,cur=0,run=0;for(let d=st;d<=t;d=addD(d,1)){if(!isStudyDay(d))continue;const v=stH(d);if(v>0)run++;else if(d<t){run=0}best=Math.max(best,run)}cur=run;
+ const cell=ds=>{if(ds>t)return `<i class="hm f"></i>`;const v=stH(ds);const lv=v==null?0:v<=0?0:Math.min(4,Math.ceil(v/S.study.goal*4));return `<i class="hm l${lv}${isStudyDay(ds)?'':' off'}${v==null&&isStudyDay(ds)&&ds>=st&&ds<t?' miss':''}" title="${dLabel(ds)}: ${v==null?'sem registro':fh1(v)}" data-a="stSheet" data-ds="${ds}"></i>`};
+ // 12 meses a partir do início dos estudos (o ano de preparação), ou até o mês atual se já passou disso
+ const m0=ym(st),nM=Math.max(12,(+ym(t).slice(0,4)-+m0.slice(0,4))*12+(+ym(t).slice(5)-+m0.slice(5))+1);
+ const rows=[];for(let i=0;i<nM;i++){const mm=addM(m0,i),y=+mm.slice(0,4),m=+mm.slice(5);const n=new Date(y,m,0).getDate();const r=stRange(mm+'-01',mm+'-'+pad(n)<t?mm+'-'+pad(n):t);
+  rows.push(`<div class="hm-r"><span class="hm-m">${MO[m-1]}${m===1||i===0?`<small>${String(y).slice(2)}</small>`:''}</span><span class="hm-d">${Array.from({length:n},(_,i)=>cell(`${mm}-${pad(i+1)}`)).join('')}</span><span class="hm-t num">${r.tot?Math.round(r.tot)+' h':''}</span></div>`)}
+ return `<section class="card span2" aria-label="Estudo para a residência"><div class="card-h"><h3>Estudo para a residência</h3><button class="link" data-a="stSheet" data-ds="${t}">Registrar</button></div>
+ <div class="stats">
+  <div class="stat"><div class="k">Total desde ${dLabel(st)}</div><div class="v">${Math.round(yr.tot)} h</div><div class="s">${yr.dias} dia${yr.dias===1?'':'s'} estudado${yr.dias===1?'':'s'}</div></div>
+  <div class="stat"><div class="k">Média por dia estudado</div><div class="v">${fh1(avg)}</div><div class="s">meta ${fh1(S.study.goal)}</div></div>
+  <div class="stat"><div class="k">Da meta acumulada</div><div class="v">${pct}%</div><div class="s">${Math.round(yr.tot)} de ${yr.meta} h planejadas</div></div>
+  <div class="stat"><div class="k">Este mês</div><div class="v">${fh1(mo.tot)}</div><div class="s">de ${mo.meta} h planejadas até agora</div></div>
+  <div class="stat"><div class="k">Esta semana</div><div class="v">${fh1(wk.tot)}</div><div class="s">de ${stRange(monday(t),addD(monday(t),6)).meta} h na semana</div></div>
+  <div class="stat"><div class="k">Sequência</div><div class="v">${cur}</div><div class="s">dias de estudo seguidos · recorde ${best}</div></div>
+ </div>
+ <div class="hm-w">${rows.join('')}</div>
+ <div class="hm-lg tiny muted"><span>menos</span><i class="hm l0"></i><i class="hm l1"></i><i class="hm l2"></i><i class="hm l3"></i><i class="hm l4"></i><span>meta ou mais</span><span style="margin-left:10px"><i class="hm l0 miss"></i> faltou anotar</span></div></section>`;
+}
 function cEnergy(){
  const t=today();const e=S.energy[t]||{};
  const top=e.m?`<div class="e-now"><div><div class="tiny muted">Hoje ao acordar</div><div class="e-big num">${e.m}<small>/5</small></div></div><div class="btns"><button class="btn sm" data-a="eNight">${e.n?`Noite: ${e.n}/5`:'Registrar noite'}</button><button class="btn sm" data-a="eReset" aria-label="Trocar nota da manhã">Trocar</button></div></div>`
@@ -1321,7 +1389,8 @@ function vResumo(){
  return `<div class="ph"><div><h1>Resumo da semana</h1><div class="sub">${P(ws).getDate()} ${MO[P(ws).getMonth()]} – ${P(end).getDate()} ${MO[P(end).getMonth()]} · ${weekLbl(ws)}</div></div>
  <div class="pager"><button class="icon-btn" data-a="sumWk" data-v="-1" aria-label="Semana anterior">${ico('l')}</button><button class="btn sm" data-a="sumWk" data-v="0">Esta semana</button><button class="icon-btn" data-a="sumWk" data-v="1" aria-label="Próxima semana">${ico('r')}</button></div></div>
  <div class="cols">
- <section class="card"><div class="card-h"><h3>Feito / planejado</h3></div>${prog('academia')}${prog('yoga')}${prog('estudo')}</section>
+ ${cStudyYear()}
+ <section class="card"><div class="card-h"><h3>Feito / planejado</h3></div>${(()=>{const w=stRange(ws,end);return `<div class="prog" style="--c:${T('estudo').c}"><div class="t"><span>Horas de estudo</span><span class="num">${fh1(w.tot)} / ${w.meta} h</span></div><div class="bar"><i style="width:${w.meta?Math.min(100,Math.round(w.tot/w.meta*100)):0}%"></i></div></div>`})()}${prog('academia')}${prog('yoga')}${prog('estudo')}</section>
  <section class="card"><div class="card-h"><h3>Plantões</h3></div><div class="stats">
   <div class="stat"><div class="k">Trabalhados</div><div class="v">${r.sh.nd}<span class="faint" style="font-size:15px"> / ${r.sh.n}</span></div><div class="s">previstos na semana</div></div>
   <div class="stat"><div class="k">Horas</div><div class="v">${Math.round(r.sh.hd)} h</div><div class="s">de ${Math.round(r.sh.h)} h previstas</div></div>
@@ -1482,6 +1551,7 @@ const OPS_DOC=`Operações (use só estas; datas AAAA-MM-DD; horas HH:MM; weekda
 {"op":"end_series","id":"…","from":"…"}
 {"op":"skip_day","id":"<id da série>","date":"…"}
 {"op":"set_rate","kind":"tutora|porta","value12h":2200}
+{"op":"set_study","date":"… (hoje ou passado)","hours":5.5}
 {"op":"set_energy","date":"… (hoje ou passado)","morning":1-5 ou null,"night":1-5 ou null,"tags":["sono ruim",…] (opcional; só destas: plantão, plantão noturno, sono ruim, dormi bem, estudo pesado, treinei, dia leve, estresse)}`;
 function cmdContext(){const t=today(),L=[];
  L.push(`Hoje: ${dLong(t)} (${t}), ${weekLbl(t)}.`);
@@ -1509,6 +1579,7 @@ function cmdDescribe(o){const t=today();
   case 'add_fixed_shift':{if(!(o.weekday>=0&&o.weekday<=6)||!okD(o.from)||!okT(o.start)||!okT(o.end)||!o.start||!o.end||!['tutora','porta'].includes(o.kind))return null;const w=o.weeks||'all';const f=firstWd(o.from,+o.weekday,w);return f?`Novo plantão fixo: toda ${wdn(o.weekday)} ${wk(w)} · ${kindName(o.kind)} ${hm(o.start)}–${hm(o.end)} · começa ${dLabel(f)}`:null}
   case 'add_shift':return okD(o.date)&&o.start&&o.end&&['tutora','porta'].includes(o.kind)?`Novo plantão: ${dLabel(o.date)} · ${kindName(o.kind)} ${hm(o.start)}–${hm(o.end)}`:null;
   case 'delete_shift':{const x=SH(o.id);return x?`Excluir plantão: ${dLabel(x.date)} · ${kindName(x.kind)} ${hm(x.start)}–${hm(x.end)}`:null}
+  case 'set_study':return okD(o.date)&&o.date<=today()&&o.hours>=0&&o.hours<=16?`Horas de estudo em ${dLabel(o.date)}: ${fh1(+o.hours)}`:null;
   case 'set_energy':{const ok=v=>v==null||(v>=1&&v<=5);if(!okD(o.date)||o.date>today()||!ok(o.morning)||!ok(o.night)||(o.morning==null&&o.night==null&&!(o.tags||[]).length))return null;return `Energia de ${dLabel(o.date)}: ${o.morning!=null?'manhã '+o.morning:''}${o.morning!=null&&o.night!=null?', ':''}${o.night!=null?'noite '+o.night:''}${(o.tags||[]).length?' · '+o.tags.filter(g=>TAGS.includes(g)).join(', '):''}`}
   case 'add_task':return o.title&&okD(o.date)&&okT(o.time)?`Adicionar: ${o.type==='lembrete'?'lembrete ':''}${o.title} · ${dLabel(o.date)}${okD(o.end_date)&&o.end_date>o.date?' até '+dLabel(o.end_date):''}${o.time?' '+hm(o.time):''}${o.end?'–'+hm(o.end):''}`:null;
   case 'move_task':{const x=TK(o.id);return x&&okD(o.date)&&okT(o.time)?`Mover: ${x.title} · ${dLabel(x.date)} → ${dLabel(o.date)}${o.time?' '+hm(o.time):''}`:null}
@@ -1524,6 +1595,7 @@ function cmdApply(o){
   case 'add_fixed_shift':{const w=o.weeks||'all',f=firstWd(o.from,+o.weekday,w);S.rules.push({id:nid(),par:w,start:f,t0:o.start,t1:o.end,kind:o.kind,upto:addD(f,-1)});break}
   case 'add_shift':S.shifts.push({id:nid(),date:o.date,start:o.start,end:o.end,kind:o.kind,v12:S.settings.rates[o.kind]});break;
   case 'delete_shift':removeShift(o.id);break;
+  case 'set_study':{S.study={...S.study,log:{...S.study.log,[o.date]:{h:Math.round(+o.hours*4)/4,at:Date.now()}}};break}
   case 'set_energy':{const e={...(S.energy[o.date]||{})};if(o.morning!=null)e.m=+o.morning;if(o.night!=null)e.n=+o.night;const tg=(o.tags||[]).filter(g=>TAGS.includes(g));if(tg.length)e.tags=[...new Set([...(e.tags||[]),...tg])];S.energy[o.date]=e;break}
   case 'add_task':S.tasks.push({id:nid(),title:String(o.title).slice(0,120),type:S.settings.types[o.type]&&o.type!=='plantao'?o.type:'pessoal',date:o.date,time:o.time||'',end:o.end||'',fixed:o.fixed!==false,done:false,created:Date.now(),...(okD(o.end_date)&&o.end_date>o.date?{endDate:o.end_date,fixed:true}:{})});break;
   case 'move_task':{const x=findTask(o.id);x.date=o.date;if(o.time)x.time=o.time;break}
@@ -1584,7 +1656,7 @@ function aiContext(){
  for(let i=0;i<14;i++){
   const ds=addD(t,i);const its=itemsOn(ds);
   const desc=its.map(it=>{if(it.k==='shift'){const s=it.o;return `PLANTÃO ${kindName(s.kind)} ${s.start}–${s.end} (${shiftHours(s)} h${shiftNight(s)?', noturno':''})`}return `${it.time?it.time+' ':''}${T(it.type).n}${it.type==='estudo'||it.type==='pessoal'?': '+it.title:''}${it.done?' [feito]':''}${it.missed?' [NÃO realizado]':''}${it.o.moved?` [remanejada ${it.o.moved}x]`:''}`}).join('; ')||'livre';
-  L.push(`- ${dLabel(ds)} ${ds}${prevShift(ds)==='night'?' (pós-plantão noturno)':''}: energia ${f1(predict(ds))}, capacidade ${capacity(ds)}, carga ${load(ds)} → ${desc}${longShiftOn(ds)?'':` · janelas realmente livres: ${freeWindows(ds).join(', ')||'nenhuma'}`}`);
+  L.push(`- ${dLabel(ds)} ${ds}${stH(ds)!=null?` (estudou ${fh1(stH(ds))})`:''}${prevShift(ds)==='night'?' (pós-plantão noturno)':''}: energia ${f1(predict(ds))}, capacidade ${capacity(ds)}, carga ${load(ds)} → ${desc}${longShiftOn(ds)?'':` · janelas realmente livres: ${freeWindows(ds).join(', ')||'nenhuma'}`}`);
  }
  L.push('\nENERGIA DOS ÚLTIMOS 14 DIAS:');
  let any=false;for(let i=13;i>=0;i--){const ds=addD(t,-i);const e=S.energy[ds];if(e&&(e.m||e.n)){any=true;L.push(`- ${dLabel(ds)}: manhã ${e.m||'–'}, noite ${e.n||'–'}${e.tags?.length?', pesou: '+e.tags.join(', '):''}${anyShiftOn(ds)?' (dia de plantão)':''}`)}}
@@ -1741,7 +1813,7 @@ function dayPanel(ds){
   const hasN=it.o&&(it.o.notes||(it.o.files||[]).length)&&it.k!=='gcal';const sub=(it.missed?'não realizada · ':'')+(hasN?'com notas · ':'')+(it.k==='shift'?`${f1(shiftHours(it.o)).replace(',0','')} h · ${brl(shiftValue(it.o))}${shiftNight(it.o)?' · noturno':''}${it.o.rule?' · fixo':''}${it.done?' · realizado':''}`:it.k==='ser'?`${T(it.type).n} · ${REC[it.o.rule]}`:`${it.span?`dia ${it.span[0]} de ${it.span[1]} · `:''}${T(it.type).n}${it.o.moved?` · remanejada ${it.o.moved}×`:''}`);
   return `<li><span class="tm">${tm}</span><span class="dot" style="background:${T(it.type).c}"></span><button class="grow" data-a="open" data-k="${it.k}" data-id="${it.id}" data-day="${ds}"><b>${h(title)}</b><span class="tiny faint">${h(sub)}</span></button>${it.k!=='shift'?`<span class="st2">${stBtns(it,ds)}</span>`:''}</li>`;
  }).join('');
- return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b>${ds<=today()?` <button class="link" data-a="eSheet" data-ds="${ds}">${e&&e.m&&e.n?'editar':'registrar'}</button>`:''}</span><span>${weekLbl(ds)}</span></div>
+ return `<div class="dp-h">${a?`<span class="pill ${a.cls==='ok'?'ok':a.cls==='full'?'warn':'bad'}">${a.long}</span>`:''}<span>Energia ${e&&e.m?'registrada':'prevista'}: <b class="num">${f1(predict(ds))}</b>${ds<=today()?` <button class="link" data-a="eSheet" data-ds="${ds}">${e&&e.m&&e.n?'editar':'registrar'}</button>`:''}</span>${ds<=today()&&(isStudyDay(ds)||stH(ds)!=null)?`<span>Estudo: <b class="num">${stH(ds)==null?'–':fh1(stH(ds))}</b> <button class="link" data-a="stSheet" data-ds="${ds}">${stH(ds)==null?'anotar':'editar'}</button></span>`:''}<span>${weekLbl(ds)}</span></div>
  ${its.length?`<ul class="lst tl">${rows}</ul>`:'<p class="empty">Dia livre, nada agendado.</p>'}
  ${its.length&&ds>=today()?(()=>{const w=freeWindows(ds);return `<p class="small" style="margin:10px 0 0"><b>Livre de verdade:</b> ${w.length?w.join(' · '):'<span class="muted">nada (só transições e descanso)</span>'}</p>`})():''}
  ${ds>=today()&&planDay(ds)?`<p class="small" style="margin:10px 0 0;color:var(--warn)">⚠ O estudo deste dia bate com outro compromisso. <button class="btn sm" data-a="reorg" data-ds="${ds}">Reorganizar o dia</button></p>`:''}
@@ -1906,7 +1978,7 @@ const ACT={
  gcMiss:el=>{setStatus({k:'gev',id:el.dataset.id,day:el.dataset.day},'missed')},
  cmdApply:()=>{if(!CMD)return;const sel=CMD.ops.filter(o=>o.on);let n=0;
   for(const o of sel){if(!cmdDescribe(o))continue;try{cmdApply(o);n++}catch(e){}}
-  genShifts();CMD=null;AI.cmd=null;D.aiCmdTxt='';memo={};save('rules','shifts','series','tasks','settings','energy');toast(`${n} mudança${n===1?'':'s'} aplicada${n===1?'':'s'}.`)},
+  genShifts();CMD=null;AI.cmd=null;D.aiCmdTxt='';memo={};save('rules','shifts','series','tasks','settings','energy','study');toast(`${n} mudança${n===1?'':'s'} aplicada${n===1?'':'s'}.`)},
  cmdCancel:()=>{CMD=null;AI.cmd=null;render()},
  attDel:async el=>{if(!armed(el))return;const {k,id,f,day}=el.dataset,o=attObj(k,id);if(!o)return;
   o.files=(o.files||[]).filter(x=>x.id!==f);save(k==='task'?'tasks':'series');try{const A=await getAssets();if(A)await A.delete(f)}catch(e){}toast('Anexo removido.');reopenItem(k,id,day)},
@@ -1966,6 +2038,12 @@ const ACT={
  eTag:el=>{const t=today();const e={...(S.energy[t]||{})};const g=el.dataset.v;const tg=new Set(e.tags||[]);tg.has(g)?tg.delete(g):tg.add(g);e.tags=[...tg];S.energy[t]=e;save('energy')},
  eReset:()=>{const t=today();const e={...(S.energy[t]||{})};delete e.m;S.energy[t]=e;save('energy')},
  eSheet:el=>energySheet(el.dataset.ds),
+ stSheet:el=>studySheet(el.dataset.ds),
+ stSet:el=>{const ds=el.dataset.ds,v=+el.dataset.v;setStudy(ds,stH(ds)===v?null:v);if(v===0&&stH(ds)===0)toast('Anotado: não estudou nesse dia.')},
+ stStep:el=>{const ds=el.dataset.ds;setStudy(ds,Math.max(0,(stH(ds)??0)+(+el.dataset.v)))},
+ stDel:el=>{setStudy(el.dataset.ds,null);toast('Registro apagado.')},
+ stGoal:el=>{S.study={...S.study,goal:Math.max(0.5,Math.min(14,S.study.goal+(+el.dataset.v)))};save('study')},
+ stDay:el=>{const g=+el.dataset.v;const d=new Set(S.study.days);d.has(g)?d.delete(g):d.add(g);if(!d.size)return;S.study={...S.study,days:[...d].sort()};save('study')},
  eSet:el=>{const {ds,f}=el.dataset,v=+el.dataset.v;if(!ds||ds>today())return;const e={...(S.energy[ds]||{})};if(e[f]===v)delete e[f];else e[f]=v;if(!e.m&&!e.n&&!(e.tags||[]).length)delete S.energy[ds];else S.energy[ds]=e;memo={};save('energy')},
  eSetTag:el=>{const ds=el.dataset.ds,g=el.dataset.v;if(!ds||ds>today())return;const e={...(S.energy[ds]||{})};const tg=new Set(e.tags||[]);tg.has(g)?tg.delete(g):tg.add(g);e.tags=[...tg];S.energy[ds]=e;memo={};save('energy')},
  eNight:()=>{const e=S.energy[today()]||{};sheet('Como foi o dia',`<div class="sh-sec"><h4>Nota do dia</h4><div class="scale">${[1,2,3,4,5].map(n=>`<button data-a="eNs" data-v="${n}" aria-pressed="${e.n===n}">${n}</button>`).join('')}</div></div><div class="sh-sec"><h4>O que pesou</h4><div class="tags">${TAGS.map(g=>`<button class="tagb" data-a="eTags" data-v="${g}" aria-pressed="${(e.tags||[]).includes(g)}">${g}</button>`).join('')}</div></div><div class="btns"><button class="btn pri" data-a="closeSheet">Pronto</button></div>`)},
@@ -2014,6 +2092,7 @@ document.addEventListener('change',e=>{
  if(el.dataset.color){S.settings.types[el.dataset.color].c=el.value;save('settings')}
  if(el.dataset.a2==='moveTaskInput'&&el.value){ACT.moveTask({dataset:{id:el.dataset.id,ds:el.value}})}
  if(el.id==='esDay'&&el.value)energySheet(el.value);
+ if(el.id==='stDay'&&el.value)studySheet(el.value);
  if(el.dataset.cmd!=null&&CMD){const o=CMD.ops[+el.dataset.cmd];if(o){o.on=el.checked;render()}}
  if(el.dataset.mw==='on'&&MW){MW.items[+el.dataset.i].on=el.checked;render()}
  if(el.id==='tfType'){const l=$('#tfTitleL');if(l)l.textContent=el.value==='estudo'?'Tema (na agenda aparece só "Estudo")':'Título'}
