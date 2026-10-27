@@ -883,7 +883,7 @@ function cardInfo(cyc){
 }
 // fechamento mensal: dia 25 pergunta recebido, fatura parcial e investido; dia 5 do mês seguinte, quanto a fatura fechou
 const fatOf=cl=>cl.fatFin!=null?cl.fatFin:cl.fat;
-const finalAskMonth=()=>{const t=today();if(P(t).getDate()<5)return null;const pm=addM(ym(t),-1);const cl=S.money.close[pm];return cl&&cl.fatFin==null?pm:null};
+const finalAskMonth=()=>null; // a fatura do dia 25 já é o valor fechado
 function finalSheet(m){const cl=S.money.close[m]||{};
  sheet(`Fatura de ${MOL[+m.slice(5)-1]} fechada`,`<form class="sh-b" data-f="fatFin" data-m="${m}"><p class="small muted" style="margin:0">No dia 25 a fatura estava em <b>${brl(cl.fat||0)}</b>. Quanto ela fechou?</p>
  <label class="field"><span>Valor final da fatura (R$)</span><input class="in" id="ffV" inputmode="decimal" required value="${cl.fatFin!=null?String(cl.fatFin).replace('.',','):''}" placeholder="0,00"></label>
@@ -894,33 +894,34 @@ function closeSheet25(m){
  const lastFat=(()=>{const es=cardEntries(m);const f=[...es].reverse().find(e=>e.final)||es[es.length-1];return f?f.v:null})();
  const realInv=S.money.inv.filter(e=>ym(e.date)===m).reduce((a,e)=>a+e.v,0);
  sheet(`Fechamento de ${MOL[+m.slice(5)-1]}`,`<form class="sh-b" data-f="close25" data-m="${m}">
- <p class="small muted" style="margin:0">Dia 25: conte quanto entrou de verdade, quanto está a fatura do cartão até agora e quanto você investiu. No dia 5 o app pergunta quanto a fatura fechou.</p>
+ <p class="small muted" style="margin:0">Dia 25: conte quanto entrou de verdade, o valor da fatura do cartão já fechada e quanto você investiu. O app mostra se sobrou dinheiro depois de tudo.</p>
  <label class="field"><span>Quanto você recebeu no mês (R$)</span><input class="in" id="c25R" inputmode="decimal" required value="${cl?v(cl.rec):''}" placeholder="${est?'previsto pelos plantões: '+brl0(est.incPlan):''}"></label>
- <label class="field"><span>Quanto está a fatura do cartão hoje (R$)</span><input class="in" id="c25F" inputmode="decimal" required value="${cl?v(cl.fat):lastFat!=null?v(lastFat):''}" placeholder="0,00"></label>
+ <label class="field"><span>Valor da fatura do cartão, fechada (R$)</span><input class="in" id="c25F" inputmode="decimal" required value="${cl?v(cl.fat):lastFat!=null?v(lastFat):''}" placeholder="0,00"></label>
  <label class="field"><span>Quanto você investiu no mês (R$)</span><input class="in" id="c25I" inputmode="decimal" required value="${cl?v(cl.inv):realInv?v(realInv):''}" placeholder="planejado: ${brl0(S.card.investT)}"></label>
  <p class="tiny faint" style="margin:0">Fixos de ${MOL[+m.slice(5)-1]} (pagos fora do cartão): <b>${brl(mm.fx)}</b>.</p>
  <div class="btns"><button class="btn pri">Salvar e ver resultado</button>${cl?`<button type="button" class="btn danger" data-a="close25Del" data-m="${m}">Apagar fechamento</button>`:''}</div></form>`,false,'close25');
 }
 function closeResultHTML(m){
  const cl=S.money.close[m];if(!cl)return '';const fx=monthMoney(m).fx;
- const fat=fatOf(cl),fin=cl.fatFin!=null,meta=cl.rec-fx-cl.inv,dif=fat-meta,alvo=S.card.investT;
+ const fat=fatOf(cl),meta=cl.rec-fx-cl.inv,sobra=cl.rec-fx-cl.inv-fat,alvo=S.card.investT,mn=MOL[+m.slice(5)-1];
  return `<div class="stats">
-  <div class="stat"><div class="k">Recebido</div><div class="v">${brl0(cl.rec)}</div><div class="s">− ${brl0(fx)} fixos − ${brl0(cl.inv)} investido</div></div>
-  <div class="stat"><div class="k">Podia gastar no cartão</div><div class="v">${brl0(Math.max(0,meta))}</div><div class="s">meta do mês</div></div>
-  <div class="stat"><div class="k">${fin?'Fatura fechada':'Fatura até o dia 25'}</div><div class="v">${brl0(fat)}</div><div class="s">${fin?`no dia 25 estava ${brl0(cl.fat)} · +${brl0(Math.max(0,cl.fatFin-cl.fat))} depois`:'parcial · o valor final é perguntado no dia 5'}</div></div>
-  <div class="stat"><div class="k">${dif>0?'Gastou a mais':'Sobrou'}</div><div class="v ${dif>0?'neg':'pos'}">${brl0(Math.abs(dif))}</div><div class="s">${dif>0?'a fatura passou do que dava':'depois de fixos, fatura e investimento'}</div></div>
+  <div class="stat"><div class="k">Recebido</div><div class="v">${brl0(cl.rec)}</div><div class="s">entrou no mês</div></div>
+  <div class="stat"><div class="k">Gastos fixos</div><div class="v">${brl0(fx)}</div><div class="s">pagos fora do cartão</div></div>
   <div class="stat"><div class="k">Investido</div><div class="v ${cl.inv>=alvo?'pos':''}">${brl0(cl.inv)}</div><div class="s">${cl.inv>=alvo?'meta de '+brl0(alvo)+' cumprida':'faltou '+brl0(alvo-cl.inv)+' para '+brl0(alvo)}</div></div>
+  <div class="stat"><div class="k">Podia gastar no cartão</div><div class="v">${brl0(Math.max(0,meta))}</div><div class="s">recebido − fixos − investido</div></div>
+  <div class="stat"><div class="k">Fatura do cartão</div><div class="v ${fat>meta?'neg':''}">${brl0(fat)}</div><div class="s">${fat>meta?brl0(fat-meta)+' acima do que podia':brl0(meta-fat)+' abaixo do que podia'}</div></div>
+  <div class="stat"><div class="k">${sobra>=0?'Sobrou':'Faltou'}</div><div class="v ${sobra>=0?'pos':'neg'}">${brl0(Math.abs(sobra))}</div><div class="s">${sobra>=0?'além de fixos, investimento e cartão':'fixos, investimento e cartão passaram do recebido'}</div></div>
  </div>
- <p class="small" style="margin:10px 0 0">${fin?'':'<b>Prévia</b> com a fatura parcial. '}${dif>0?`Em ${MOL[+m.slice(5)-1]} a fatura passou <b>${brl(dif)}</b> do que a renda permitia depois dos fixos e do investimento.`:`Em ${MOL[+m.slice(5)-1]} você ficou <b>${brl(-dif)}</b> abaixo do limite: a renda cobriu fixos, fatura e investimento.`}</p>`;
+ <p class="small" style="margin:10px 0 0">${sobra>=0?`Em ${mn}, depois de pagar os fixos, investir e quitar a fatura, sobraram <b>${brl(sobra)}</b>.`:`Em ${mn}, fixos, investimento e fatura somaram <b>${brl(-sobra)}</b> a mais do que você recebeu.`}</p>`;
 }
 function cClose25(){
  const m=closeAskMonth(),cur=ym(today()),last=Object.keys(S.money.close).sort().pop();
  const fm=finalAskMonth();
- const ask=(m?`<div class="notice"><p><b>Fechamento de ${MOL[+m.slice(5)-1]}</b>: quanto você recebeu, quanto está a fatura e quanto investiu?</p><div class="btns"><button class="btn sm pri" data-a="close25" data-m="${m}">Responder</button></div></div>`:'')+(fm?`<div class="notice"><p><b>Dia 5</b>: quanto fechou a fatura de ${MOL[+fm.slice(5)-1]}? No dia 25 estava ${brl0(S.money.close[fm].fat)}.</p><div class="btns"><button class="btn sm pri" data-a="fatFin" data-m="${fm}">Informar valor final</button></div></div>`:'');
- const hist=Object.keys(S.money.close).sort().reverse().slice(0,8).map(k=>{const c=S.money.close[k],fx=monthMoney(k).fx,meta=c.rec-fx-c.inv,dif=fatOf(c)-meta;return `<tr><td><button class="link" data-a="close25" data-m="${k}">${mShort(k)}</button></td><td>${brl0(c.rec)}</td><td>${brl0(c.fat)}</td><td>${c.fatFin!=null?brl0(c.fatFin):`<button class="link" data-a="fatFin" data-m="${k}">informar</button>`}</td><td>${brl0(Math.max(0,meta))}</td><td class="${dif>0?'neg':'pos'}">${dif>0?'+':'−'}${brl0(Math.abs(dif))}</td><td>${brl0(c.inv)}</td></tr>`});
+ const ask=(m?`<div class="notice"><p><b>Fechamento de ${MOL[+m.slice(5)-1]}</b>: quanto você recebeu, quanto fechou a fatura e quanto investiu?</p><div class="btns"><button class="btn sm pri" data-a="close25" data-m="${m}">Responder</button></div></div>`:'')+(fm?`<div class="notice"><p><b>Dia 5</b>: quanto fechou a fatura de ${MOL[+fm.slice(5)-1]}? No dia 25 estava ${brl0(S.money.close[fm].fat)}.</p><div class="btns"><button class="btn sm pri" data-a="fatFin" data-m="${fm}">Informar valor final</button></div></div>`:'');
+ const hist=Object.keys(S.money.close).sort().reverse().slice(0,8).map(k=>{const c=S.money.close[k],fx=monthMoney(k).fx,meta=c.rec-fx-c.inv,so=meta-fatOf(c);return `<tr><td><button class="link" data-a="close25" data-m="${k}">${mShort(k)}</button></td><td>${brl0(c.rec)}</td><td>${brl0(fx)}</td><td>${brl0(c.inv)}</td><td>${brl0(fatOf(c))}</td><td>${brl0(Math.max(0,meta))}</td><td class="${so>=0?'pos':'neg'}">${so>=0?'':'−'}${brl0(Math.abs(so))}</td></tr>`});
  return `<section class="card span2" aria-label="Fechamento do mês"><div class="card-h"><h3>Fechamento do dia 25</h3><button class="btn sm" data-a="close25" data-m="${m||cur}">${S.money.close[m||cur]?'Rever':'Fazer agora'}</button></div>
  ${ask}${last&&!m?closeResultHTML(last):''}
- ${hist.length?`<div class="tbl-w" style="margin-top:10px"><table><thead><tr><th>Mês</th><th>Recebido</th><th>Fatura dia 25</th><th>Fechou (dia 5)</th><th>Podia gastar</th><th>Fatura vs meta</th><th>Investido</th></tr></thead><tbody>${hist.join('')}</tbody></table></div>`:`<p class="small muted" style="margin:0">Todo dia 25 o app pergunta quanto entrou, quanto está a fatura e quanto você investiu; no dia 5 seguinte, quanto a fatura fechou. Com isso ele diz se a fatura passou do que dava.</p>`}</section>`;
+ ${hist.length?`<div class="tbl-w" style="margin-top:10px"><table><thead><tr><th>Mês</th><th>Recebido</th><th>Fixos</th><th>Investido</th><th>Fatura</th><th>Podia gastar</th><th>Sobrou</th></tr></thead><tbody>${hist.join('')}</tbody></table></div>`:`<p class="small muted" style="margin:0">Todo dia 25 o app pergunta quanto entrou, quanto fechou a fatura e quanto você investiu. Com isso ele mostra se sobrou dinheiro ou se a fatura passou do que dava.</p>`}</section>`;
 }
 function monthMoney(m){
  const sh=S.shifts.filter(s=>ym(s.date)===m);
@@ -1136,7 +1137,7 @@ function cNotices(){
   parts.push(`<div class="notice"><p><b>${h(task.type==='estudo'?'Estudo: '+task.title:task.title)}</b> não foi concluída em ${dLabel(n.from)} e foi para <b>${dLabel(task.date)}</b>.${task.moved>=3?` <span class="pill warn">remanejada ${task.moved}×</span>`:''}</p><div class="btns"><button class="btn sm" data-a="ack" data-id="${n.id}">Ciente</button><button class="btn sm" data-a="swapDay" data-id="${n.id}">Trocar dia</button></div></div>`);
  }
  {const fm=finalAskMonth();if(fm)parts.push(`<div class="notice"><p><b>Dia 5 · fatura de ${MOL[+fm.slice(5)-1]}</b>: quanto ela fechou? No dia 25 estava ${brl0(S.money.close[fm].fat)}.</p><div class="btns"><button class="btn sm pri" data-a="fatFin" data-m="${fm}">Informar valor final</button></div></div>`)}
- {const m25=closeAskMonth();if(m25)parts.push(`<div class="notice"><p><b>Dia 25 · fechamento de ${MOL[+m25.slice(5)-1]}</b>: quanto você recebeu, quanto está a fatura do cartão e quanto investiu?</p><div class="btns"><button class="btn sm pri" data-a="close25" data-m="${m25}">Responder</button></div></div>`)}
+ {const m25=closeAskMonth();if(m25)parts.push(`<div class="notice"><p><b>Dia 25 · fechamento de ${MOL[+m25.slice(5)-1]}</b>: quanto você recebeu, quanto fechou a fatura do cartão e quanto investiu?</p><div class="btns"><button class="btn sm pri" data-a="close25" data-m="${m25}">Responder</button></div></div>`)}
  if(false){const cyc=cycleOf(t),day=P(t).getDate();
   if(t===closeDate(cyc)&&!cardInfo(cyc).fin)parts.push(`<div class="notice"><div class="alert"><i></i><span>Hoje a fatura fecha. Registre o valor final para comparar com a meta.</span></div><div class="btns"><button class="btn sm" data-a="cardOpen" data-final="1">Registrar fatura fechada</button></div></div>`);
   else{const lastClosed=t>closeDate(ym(t))?ym(t):addM(ym(t),-1);
@@ -2193,7 +2194,7 @@ const FORMS={
   sheet(`Resultado de ${MOL[+m.slice(5)-1]}`,closeResultHTML(m)+`<div class="btns"><button class="btn pri" data-a="closeSheet">Pronto</button></div>`,false,'close25r')},
  close25:f=>{const m=f.dataset.m,rec=parseBRL($('#c25R').value),fat=parseBRL($('#c25F').value),inv=parseBRL($('#c25I').value);
   if(!(rec>=0)||!(fat>=0)||!(inv>=0)){toast('Preencha os três valores (ex.: 18.500,00).');return}
-  S.money={...S.money,close:{...S.money.close,[m]:{...(S.money.close[m]||{}),rec,fat,inv,at:Date.now()}},plan:{...S.money.plan,[m]:{st:inv>0?'done':'skip',at:Date.now()}}};save('money');closeSheet();
+  S.money={...S.money,close:{...S.money.close,[m]:{rec,fat,inv,fatFin:fat,at:Date.now()}},plan:{...S.money.plan,[m]:{st:inv>0?'done':'skip',at:Date.now()}}};save('money');closeSheet();
   sheet(`Resultado de ${MOL[+m.slice(5)-1]}`,closeResultHTML(m)+`<div class="btns"><button class="btn pri" data-a="closeSheet">Pronto</button><button class="btn" data-a="close25" data-m="${m}">Corrigir valores</button></div>`,false,'close25r')},
  cardInvT:f=>{const v=parseBRL($('#ciT').value);if(!(v>=0)){toast('Valor inválido.');return}S.card.investT=v;save('card');closeSheet();toast('Aporte mensal salvo.')},
  quick:f=>{const ls=String(D.qkTxt||'').split('\n').map(x=>x.trim()).filter(Boolean);if(!ls.length)return;const msgs=[];
