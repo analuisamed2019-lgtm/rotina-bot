@@ -64,7 +64,7 @@ h1,h2,h3,h4{margin:0;font-weight:700;text-wrap:balance}
 .icon-btn svg{width:20px;height:20px}
 
 /* Bottom tabs */
-.tabs-bot{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);display:grid;grid-template-columns:repeat(7,1fr)}
+.tabs-bot{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);display:grid;grid-template-columns:repeat(6,1fr)}
 .tab{height:var(--tab-h);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11.5px;font-weight:600;color:var(--fg-3)}
 .tab svg{width:22px;height:22px}
 @media (max-width:420px){.tabs-bot .tab{font-size:10.5px;letter-spacing:-.01em}.tabs-bot .tab svg{width:21px;height:21px}}
@@ -957,7 +957,7 @@ try{const t=localStorage.getItem(LS+'-tab');if(t)tab=t}catch(e){}
 let wk=monday(today()),calM=ym(today()),sumWk=monday(today()),monM=ym(today()),lastDay=today();
 const D={}; // rascunhos dos campos
 const AI={};let MW=null,FIT=null;
-const TABS=[['semana','Semana','week'],['agendar','Agendar','plus'],['resumo','Resumo','sum'],['dinheiro','Dinheiro','money'],['energia','Energia','energy'],['email','E-mail','mail'],['ia','IA','ai']];
+const TABS=[['semana','Semana','week'],['agendar','Agendar','plus'],['resumo','Resumo','sum'],['dinheiro','Dinheiro','money'],['energia','Energia','energy'],['ia','IA','ai']];
 function navHTML(){return TABS.map(([k,l,i])=>`<button class="tab" data-a="tab" data-v="${k}" ${tab===k?'aria-current="page"':''}>${ico(i)}<span>${l}</span></button>`).join('')}
 let isDesk=matchMedia('(min-width:1100px)');
 isDesk.addEventListener?.('change',()=>render());
@@ -979,10 +979,10 @@ function ensureHorizon(){if(hzBusy||!booted||!S.rules.length)return;const ends=[
  const need=addD(far,10);if(S.rules.some(r=>!r.until&&(r.upto||'')<need)){hzBusy=true;try{genShifts(addD(far,45))}finally{hzBusy=false}}}
 function render(){
  memo={};applyTheme();ensureHorizon();memo={};
+ if(tab==='email')tab='semana'; // aba de e-mails removida
  $('#todayLbl').textContent=dLong(today());
  $('#tabsTop').innerHTML=navHTML();$('#tabsBot').innerHTML=navHTML();
  const v=$('#view');
- if(tab==='email')mailStart();
  v.innerHTML=({semana:vHome,resumo:vResumo,dinheiro:vMoney,energia:vEnergy,email:vMail,agendar:vQuick,ia:vAI}[tab]||vHome)();
  if(liveSheet&&!$('#sheet').hidden){const sh=$('#sheet .sh');const y=sh?sh.scrollTop:0;const f=liveSheet;sheetRefreshing=true;try{f()}finally{sheetRefreshing=false}liveSheet=f;const n=$('#sheet .sh');if(n)n.scrollTop=y}
 }
@@ -990,8 +990,8 @@ function render(){
 /* ---------- Semana (tela inicial) ---------- */
 function vHome(){
  const notes=cNotes(),week=cWeek(),cal=cCal(),en=cEnergy(),av=cNotices(),st=cStudies(),mo=cMoneyMini(),sl=cStudyLog();
- if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${cShiftCal()}${st}</div><div class="stack">${week}${cMonthDesk()}</div><div class="stack">${sl}${en}${av}${cMailMini()}${mo}</div></div>`;
- return `<div class="home">${notes}${cFitHome()}${cCmdHome()}${week}<div class="cards">${sl}${av}${cMailMini()}${en}${cal}${cShiftCal()}${st}${mo}</div></div>`;
+ if(isDesk.matches)return `<div class="home"><div class="stack">${notes}${cFitHome()}${cCmdHome()}${cal}${cShiftCal()}${st}</div><div class="stack">${week}${cMonthDesk()}</div><div class="stack">${sl}${en}${av}${mo}</div></div>`;
+ return `<div class="home">${notes}${cFitHome()}${cCmdHome()}${week}<div class="cards">${sl}${av}${en}${cal}${cShiftCal()}${st}${mo}</div></div>`;
 }
 function sortedNotes(){return [...S.notes].sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||b.upd-a.upd)}
 function noteTime(ts){const d=new Date(ts);return `${d.getDate()} ${MO[d.getMonth()]}, ${pad(d.getHours())}:${pad(d.getMinutes())}`}
