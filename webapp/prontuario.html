@@ -530,7 +530,7 @@ const DEF=()=>({
  settings:{types:JSON.parse(JSON.stringify(DEF_TYPES)),rates:{tutora:2200,porta:2000},theme:'system'},
  notes:[],tasks:[],series:JSON.parse(JSON.stringify(SEED_SERIES)),shifts:[],
  money:{exp:[],fixed:[],inv:[],plan:{},close:{}},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES)),card:{closeDay:21,entries:[],metas:[],investT:5000,planFrom:'2026-10'},mail:{vip:[],mute:[]},
- study:{log:{},goal:7,days:[1,2,3,4],big:{h:1000,from:'2026-11-04',to:'2027-12-31'}}
+ study:{log:{},goal:7,days:[1,2,3,4],big:{h:1000,from:'2026-11-02',to:'2027-12-31'}}
 });
 const LS='prontuario-v1';
 let S=DEF();
@@ -545,7 +545,7 @@ function fixShape(){
  for(const k of ['exp','fixed','inv']) if(!Array.isArray(S.money[k])) S.money[k]=[];
  for(const k of ['vip','mute'])if(!Array.isArray(S.mail[k]))S.mail[k]=[];
  if(!S.money.close||typeof S.money.close!=='object'||Array.isArray(S.money.close))S.money.close={};
- if(!S.study.log||typeof S.study.log!=='object'||Array.isArray(S.study.log))S.study.log={};if(!(S.study.goal>0))S.study.goal=7;if(!S.study.big||!(S.study.big.h>0))S.study.big={h:1000,from:'2026-11-04',to:'2027-12-31'};if(!Array.isArray(S.study.days)||!S.study.days.length)S.study.days=[1,2,3,4];
+ if(!S.study.log||typeof S.study.log!=='object'||Array.isArray(S.study.log))S.study.log={};if(!(S.study.goal>0))S.study.goal=7;if(!S.study.big||!(S.study.big.h>0))S.study.big={h:1000,from:'2026-11-02',to:'2027-12-31'};if(S.study.big.from==='2026-11-04')S.study.big={...S.study.big,from:'2026-11-02'};if(!Array.isArray(S.study.days)||!S.study.days.length)S.study.days=[1,2,3,4];
  if(!(S.card.closeDay>=1))S.card.closeDay=21;for(const k of ['entries','metas'])if(!Array.isArray(S.card[k]))S.card[k]=[];if(!(S.card.investT>=0))S.card.investT=5000;if(!S.card.planFrom)S.card.planFrom='2026-10';if(!S.money.plan||typeof S.money.plan!=='object'||Array.isArray(S.money.plan))S.money.plan={};
  let ch=false;
  for(const r of S.series)if(r.wk==='A'||r.wk==='B'){if(r.rule==='biweekly')r.rule=r.wk==='A'?'odd':'even';delete r.wk;ch=true}
@@ -1099,7 +1099,7 @@ function studySheet(ds){
  liveSheet=()=>studySheet(ds);
 }
 // visão do ano: uma linha por mês, um quadradinho por dia (cor = horas em relação à meta)
-// meta grande (1000 h de 04/11/2026 a 31/12/2027): horas feitas, porcentagem e ritmo
+// meta grande (1000 h de 02/11/2026 a 31/12/2027): horas feitas, porcentagem e ritmo
 function bigGoal(){
  const g=S.study.big,t=today(),end=t<g.to?t:g.to;let done=0;
  if(end>=g.from)for(let d=g.from;d<=end;d=addD(d,1)){const v=stH(d);if(v>0)done+=v}
