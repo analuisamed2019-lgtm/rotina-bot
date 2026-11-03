@@ -211,6 +211,11 @@ textarea.in{height:auto;padding:9px 11px;resize:vertical;line-height:1.4}
 .st-in{display:flex;align-items:center;justify-content:center;gap:18px;margin:4px 0 10px}.st-v{display:flex;flex-direction:column;align-items:center;min-width:90px}
 .st-pm{width:44px;height:44px;border:1px solid var(--line-2);border-radius:12px;font-size:22px;font-weight:700}
 .st-chips .tagb{min-width:46px}
+.sw{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.sw-d{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0;border-radius:10px;background:var(--surface-2,transparent);border:1px solid var(--line)}
+.sw-d.today{border-color:var(--accent)}.sw-d.off{opacity:.6}.sw-d:disabled{opacity:.4;cursor:default}
+.sw-v{font-size:12px;font-weight:700;min-height:16px}.sw-b{height:70px;width:16px;border-radius:5px;background:var(--line);display:flex;align-items:flex-end;overflow:hidden}
+.sw-b i{display:block;width:100%;background:#3b82f6;border-radius:5px}.sw-w{font-size:11px;color:var(--fg-2);text-transform:capitalize}.sw-n{font-size:12px;font-weight:700}
 .hm-w{display:flex;flex-direction:column;gap:3px;margin-top:12px;overflow-x:auto}
 .hm-r{display:grid;grid-template-columns:38px 1fr 42px;align-items:center;gap:6px}
 .hm-m small{font-weight:500;margin-left:1px;opacity:.7}.hm-m{font-size:11px;white-space:nowrap;font-weight:700;color:var(--fg-2);text-transform:capitalize}.hm-t{font-size:11px;text-align:right;color:var(--fg-2)}
@@ -525,7 +530,7 @@ const DEF=()=>({
  settings:{types:JSON.parse(JSON.stringify(DEF_TYPES)),rates:{tutora:2200,porta:2000},theme:'system'},
  notes:[],tasks:[],series:JSON.parse(JSON.stringify(SEED_SERIES)),shifts:[],
  money:{exp:[],fixed:[],inv:[],plan:{},close:{}},energy:{},notices:[],rules:JSON.parse(JSON.stringify(SEED_RULES)),card:{closeDay:21,entries:[],metas:[],investT:5000,planFrom:'2026-10'},mail:{vip:[],mute:[]},
- study:{log:{},goal:7,days:[1,2,3,4]}
+ study:{log:{},goal:7,days:[1,2,3,4],big:{h:1000,from:'2026-11-04',to:'2027-12-31'}}
 });
 const LS='prontuario-v1';
 let S=DEF();
@@ -540,7 +545,7 @@ function fixShape(){
  for(const k of ['exp','fixed','inv']) if(!Array.isArray(S.money[k])) S.money[k]=[];
  for(const k of ['vip','mute'])if(!Array.isArray(S.mail[k]))S.mail[k]=[];
  if(!S.money.close||typeof S.money.close!=='object'||Array.isArray(S.money.close))S.money.close={};
- if(!S.study.log||typeof S.study.log!=='object'||Array.isArray(S.study.log))S.study.log={};if(!(S.study.goal>0))S.study.goal=7;if(!Array.isArray(S.study.days)||!S.study.days.length)S.study.days=[1,2,3,4];
+ if(!S.study.log||typeof S.study.log!=='object'||Array.isArray(S.study.log))S.study.log={};if(!(S.study.goal>0))S.study.goal=7;if(!S.study.big||!(S.study.big.h>0))S.study.big={h:1000,from:'2026-11-04',to:'2027-12-31'};if(!Array.isArray(S.study.days)||!S.study.days.length)S.study.days=[1,2,3,4];
  if(!(S.card.closeDay>=1))S.card.closeDay=21;for(const k of ['entries','metas'])if(!Array.isArray(S.card[k]))S.card[k]=[];if(!(S.card.investT>=0))S.card.investT=5000;if(!S.card.planFrom)S.card.planFrom='2026-10';if(!S.money.plan||typeof S.money.plan!=='object'||Array.isArray(S.money.plan))S.money.plan={};
  let ch=false;
  for(const r of S.series)if(r.wk==='A'||r.wk==='B'){if(r.rule==='biweekly')r.rule=r.wk==='A'?'odd':'even';delete r.wk;ch=true}
@@ -1076,7 +1081,8 @@ function cStudyLog(){
  const pct=w.meta?Math.min(100,Math.round(w.tot/w.meta*100)):0;
  return `<section class="card" aria-label="Horas de estudo"><div class="card-h"><h3>Horas de estudo</h3><button class="link" data-a="tab" data-v="resumo">Ver o ano</button></div>
  ${sd||stH(t)!=null?`<div class="tiny muted" style="margin-bottom:6px">Quanto você estudou hoje (${dLabel(t)})?</div>${stInput(t)}`:`<p class="small muted" style="margin:0 0 8px">Hoje não é dia de estudo planejado. <button class="link" data-a="stSheet" data-ds="${t}">Registrar mesmo assim</button></p>`}
- <div class="prog" style="--c:${T('estudo').c};margin-top:10px"><div class="t"><span>Esta semana</span><span class="num">${fh1(w.tot)} de ${w.meta} h</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>
+ ${(()=>{const B=bigGoal();return `<div class="prog" style="--c:${T('estudo').c};margin-top:10px"><div class="t"><span>Meta ${B.g.h} h</span><span class="num">${(Math.round(B.pct*10)/10).toString().replace('.',',')}% · ${fh1(B.done)}</span></div><div class="bar"><i style="width:${B.pct}%"></i></div></div>`})()}
+ <div class="prog" style="--c:${T('estudo').c}"><div class="t"><span>Esta semana</span><span class="num">${fh1(w.tot)} de ${w.meta} h</span></div><div class="bar"><i style="width:${pct}%"></i></div></div>
  ${ms.length?`<div class="tiny muted" style="margin:10px 0 6px">Faltou anotar</div><div class="tags">${ms.map(d=>`<button class="tagb" data-a="stSheet" data-ds="${d}">${dLabel(d)}</button>`).join('')}</div>`:''}
  <div class="btns" style="margin-top:8px"><button class="btn sm" data-a="stSheet" data-ds="${addD(t,-1)}">Outro dia</button></div></section>`;
 }
@@ -1093,26 +1099,37 @@ function studySheet(ds){
  liveSheet=()=>studySheet(ds);
 }
 // visão do ano: uma linha por mês, um quadradinho por dia (cor = horas em relação à meta)
+// meta grande (1000 h de 04/11/2026 a 31/12/2027): horas feitas, porcentagem e ritmo
+function bigGoal(){
+ const g=S.study.big,t=today(),end=t<g.to?t:g.to;let done=0;
+ if(end>=g.from)for(let d=g.from;d<=end;d=addD(d,1)){const v=stH(d);if(v>0)done+=v}
+ const total=diffD(g.from,g.to)+1,gone=t<g.from?0:Math.min(total,diffD(g.from,t)+1),left=Math.max(0,total-gone);
+ const expected=g.h*gone/total,weeksLeft=Math.max(1,left/7);
+ return {g,done,pct:Math.min(100,done/g.h*100),expected,behind:expected-done,perWeek:Math.max(0,(g.h-done)/weeksLeft),left};
+}
+let stWk=null;
 function cStudyYear(){
  const t=today(),st=stStart(),tEnd=stH(t)==null?addD(t,-1):t;
- const yr=stRange(st,tEnd),mo=stRange(ym(t)+'-01'>st?ym(t)+'-01':st,tEnd),wk=stRange(monday(t),t);
- const avg=yr.dias?yr.tot/yr.dias:0,pct=yr.meta?Math.round(yr.tot/yr.meta*100):0;
- let best=0,cur=0,run=0;for(let d=st;d<=t;d=addD(d,1)){if(!isStudyDay(d))continue;const v=stH(d);if(v>0)run++;else if(d<t){run=0}best=Math.max(best,run)}cur=run;
+ const mo=stRange(ym(t)+'-01'>st?ym(t)+'-01':st,tEnd),wk=stRange(monday(t),t),B=bigGoal();
+ const ws=stWk||monday(t),we=addD(ws,6),wsum=stRange(ws,we);
+ const days=Array.from({length:7},(_,i)=>addD(ws,i)),mx=Math.max(S.study.goal,...days.map(d=>stH(d)||0));
+ const wcal=days.map(d=>{const v=stH(d),fut=d>t,hp=v>0?Math.max(6,v/mx*100):0;return `<button class="sw-d${d===t?' today':''}${isStudyDay(d)?'':' off'}" data-a="${fut?'':'stSheet'}" data-ds="${d}" ${fut?'disabled':''} aria-label="${dLabel(d)}: ${v==null?'sem registro':fh1(v)}"><span class="sw-v num">${v==null?(fut||!isStudyDay(d)?'':'–'):fh1(v).replace(' h','h')}</span><span class="sw-b"><i style="height:${hp}%"></i></span><span class="sw-w">${WD[P(d).getDay()]}</span><span class="sw-n num">${P(d).getDate()}</span></button>`}).join('');
  const cell=ds=>{if(ds>t)return `<i class="hm f"></i>`;const v=stH(ds);const lv=v==null?0:v<=0?0:Math.min(4,Math.ceil(v/S.study.goal*4));return `<i class="hm l${lv}${isStudyDay(ds)?'':' off'}${v==null&&isStudyDay(ds)&&ds>=st&&ds<t?' miss':''}" title="${dLabel(ds)}: ${v==null?'sem registro':fh1(v)}" data-a="stSheet" data-ds="${ds}"></i>`};
- // 12 meses a partir do início dos estudos (o ano de preparação), ou até o mês atual se já passou disso
  const m0=ym(st),nM=Math.max(12,(+ym(t).slice(0,4)-+m0.slice(0,4))*12+(+ym(t).slice(5)-+m0.slice(5))+1);
  const rows=[];for(let i=0;i<nM;i++){const mm=addM(m0,i),y=+mm.slice(0,4),m=+mm.slice(5);const n=new Date(y,m,0).getDate();const r=stRange(mm+'-01',mm+'-'+pad(n)<t?mm+'-'+pad(n):t);
   rows.push(`<div class="hm-r"><span class="hm-m">${MO[m-1]}${m===1||i===0?`<small>${String(y).slice(2)}</small>`:''}</span><span class="hm-d">${Array.from({length:n},(_,i)=>cell(`${mm}-${pad(i+1)}`)).join('')}</span><span class="hm-t num">${r.tot?Math.round(r.tot)+' h':''}</span></div>`)}
+ const pl=v=>(Math.round(v*10)/10).toString().replace('.',',');
  return `<section class="card span2" aria-label="Estudo para a residência"><div class="card-h"><h3>Estudo para a residência</h3><button class="link" data-a="stSheet" data-ds="${t}">Registrar</button></div>
- <div class="stats">
-  <div class="stat"><div class="k">Total desde ${dLabel(st)}</div><div class="v">${Math.round(yr.tot)} h</div><div class="s">${yr.dias} dia${yr.dias===1?'':'s'} estudado${yr.dias===1?'':'s'}</div></div>
-  <div class="stat"><div class="k">Média por dia estudado</div><div class="v">${fh1(avg)}</div><div class="s">meta ${fh1(S.study.goal)}</div></div>
-  <div class="stat"><div class="k">Da meta acumulada</div><div class="v">${pct}%</div><div class="s">${Math.round(yr.tot)} de ${yr.meta} h planejadas</div></div>
+ <div class="big-g"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px"><div><div class="tiny muted">Meta: ${B.g.h} h até ${P(B.g.to).getDate()}/${pad(P(B.g.to).getMonth()+1)}/${P(B.g.to).getFullYear()}</div><div class="e-big num">${pl(B.pct)}%</div></div><div class="small muted num" style="text-align:right">${fh1(B.done)} de ${B.g.h} h<br>${t<B.g.from?`começa em ${dLabel(B.g.from)}`:B.behind>0.5?`<span style="color:var(--warn)">${fh1(B.behind)} atrás do ritmo</span>`:`<span style="color:var(--ok,#30a46c)">no ritmo${B.behind<-0.5?` · ${fh1(-B.behind)} adiantada`:''}</span>`}</div></div>
+  <div class="bar" style="margin:8px 0 4px;--c:${T('estudo').c}"><i style="width:${B.pct}%"></i></div>
+  <div class="tiny faint">Para chegar lá: cerca de <b>${fh1(B.perWeek)}</b> por semana até o fim (${Math.ceil(B.left/7)} semanas restantes).</div></div>
+ <div class="stats" style="margin-top:12px">
   <div class="stat"><div class="k">Este mês</div><div class="v">${fh1(mo.tot)}</div><div class="s">de ${mo.meta} h planejadas até agora</div></div>
   <div class="stat"><div class="k">Esta semana</div><div class="v">${fh1(wk.tot)}</div><div class="s">de ${stRange(monday(t),addD(monday(t),6)).meta} h na semana</div></div>
-  <div class="stat"><div class="k">Sequência</div><div class="v">${cur}</div><div class="s">dias de estudo seguidos · recorde ${best}</div></div>
  </div>
- <div class="hm-w">${rows.join('')}</div>
+ <div class="row" style="justify-content:space-between;align-items:center;margin:14px 0 6px"><b class="small">Semana ${P(ws).getDate()}/${pad(P(ws).getMonth()+1)} – ${P(we).getDate()}/${pad(P(we).getMonth()+1)} · ${fh1(wsum.tot)}</b><span class="btns" style="margin:0"><button class="icon-btn" data-a="stWk" data-v="-1" aria-label="Semana anterior">${ico('l')}</button>${ws!==monday(t)?`<button class="btn sm" data-a="stWk" data-v="0">Esta semana</button>`:''}<button class="icon-btn" data-a="stWk" data-v="1" aria-label="Próxima semana" ${ws>=monday(t)?'disabled':''}>${ico('r')}</button></span></div>
+ <div class="sw">${wcal}</div>
+ <div class="hm-w" style="margin-top:16px">${rows.join('')}</div>
  <div class="hm-lg tiny muted"><span>menos</span><i class="hm l0"></i><i class="hm l1"></i><i class="hm l2"></i><i class="hm l3"></i><i class="hm l4"></i><span>meta ou mais</span><span style="margin-left:10px"><i class="hm l0 miss"></i> faltou anotar</span></div></section>`;
 }
 function cEnergy(){
@@ -1722,6 +1739,7 @@ function aiContext(){
  L.push(`Esta semana: academia ${sw.academia[0]}/${sw.academia[1]}, yoga ${sw.yoga[0]}/${sw.yoga[1]}, estudo ${sw.estudo[0]}/${sw.estudo[1]}.`);
  const m=monthMoney(ym(t));
  {const ci=cardInfo(cycleOf(t));L.push(`\nFATURA DO CARTÃO (fecha ${dLabel(ci.cd)}): ${ci.val!=null?brl(ci.val)+(ci.fin?' (fechada)':' até agora'):'sem registro'}; meta ${ci.meta!=null?brl(ci.meta)+` (renda prevista − fixos − investimento mínimo de ${brl(S.card.investT)})`:'sem renda prevista'}${ci.gap!=null?`; ${ci.gap>=0?'ainda pode gastar '+brl(ci.gap):'passou da meta em '+brl(-ci.gap)}`:''}${ci.proj!=null?`; no ritmo atual fecha em ~${brl(ci.proj)}`:''}.`)}
+ {const B=bigGoal();L.push(`\nMETA DE ESTUDO: ${B.g.h} h de ${B.g.from} a ${B.g.to}; feitas ${fh1(B.done)} (${Math.round(B.pct*10)/10}%), precisa de ~${fh1(B.perWeek)} por semana.`)}
  {const ks=Object.keys(S.money.close).sort().slice(-3);if(ks.length)L.push('\nFECHAMENTOS DO DIA 25 (valores reais informados por ela): '+ks.map(k=>{const c=S.money.close[k],fx=monthMoney(k).fx,meta=c.rec-fx-c.inv;return `${mLabel(k)}: recebeu ${brl(c.rec)}, fatura anterior fechou em ${brl(c.fat)}${c.next!=null?`, próxima fatura já em ${brl(c.next)}`:''} (podia ${brl(Math.max(0,meta))}), investiu ${brl(c.inv)}`}).join('; '))}
  L.push(`\nFINANCEIRO DE ${mLabel(ym(t)).toUpperCase()}: entradas previstas ${brl(m.inc)} (${m.sh.length} plantões, ${brl(m.incDone)} já realizados), fixos (pagos fora do cartão) ${brl(m.fx)}, fatura do cartão ${m.fatOk?brl(m.fat)+(m.fatFinal?' (fechada)':' (parcial)'):'sem registro'}, investido ${brl(m.iv)}${m.ivPending?' (aporte mensal previsto, ainda não confirmado)':''}, saldo previsto (entradas − fixos − cartão − investido) ${brl(m.saldo)}. Supérfluos anotados no mês (já incluídos no cartão): ${brl(m.sup)}. Valores por 12 h: Tutora ${brl(S.settings.rates.tutora)}, Porta ${brl(S.settings.rates.porta)}. Não calcular imposto.`);
  return L.join('\n');
@@ -2092,6 +2110,7 @@ const ACT={
  eReset:()=>{const t=today();const e={...(S.energy[t]||{})};delete e.m;S.energy[t]=e;save('energy')},
  eSheet:el=>energySheet(el.dataset.ds),
  stSheet:el=>studySheet(el.dataset.ds),
+ stWk:el=>{const v=+el.dataset.v,cur=stWk||monday(today());stWk=v===0?null:addD(cur,7*v);if(stWk&&stWk>=monday(today()))stWk=null;render()},
  close25:el=>closeSheet25(el.dataset.m),
  fatFin:el=>finalSheet(el.dataset.m),
  close25Del:el=>{const m=el.dataset.m;if(!el.dataset.armed){el.dataset.armed='1';el.textContent='Toque de novo para apagar';return}const c={...S.money.close};delete c[m];S.money={...S.money,close:c};save('money');closeSheet();toast('Fechamento apagado.')},
