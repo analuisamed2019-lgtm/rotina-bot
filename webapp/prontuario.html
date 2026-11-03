@@ -1443,13 +1443,15 @@ function weekStats(ws){
  const r={academia:[0,0],yoga:[0,0],estudo:[0,0],sh:{n:0,nd:0,h:0,hd:0,v:0,vd:0}};
  for(let i=0;i<7;i++){for(const it of itemsOn(addD(ws,i))){
   if(it.k==='shift'){const s=it.o,hh=shiftHours(s),v=shiftValue(s);r.sh.n++;r.sh.h+=hh;r.sh.v+=v;if(it.done){r.sh.nd++;r.sh.hd+=hh;r.sh.vd+=v}}
-  else if(r[it.type]){r[it.type][1]++;if(it.done)r[it.type][0]++}
+  else if(r[it.type]&&it.type!=='estudo'){r[it.type][1]++;if(it.done)r[it.type][0]++}
  }}
+ // estudo: dias de estudo da semana vs. dias com horas anotadas no registro de estudo
+ for(let i=0;i<7;i++){const d=addD(ws,i),v=stH(d);if(isStudyDay(d)||v>0)r.estudo[1]++;if(v>0)r.estudo[0]++}
  return r;
 }
 function vResumo(){
  const ws=sumWk,r=weekStats(ws);const end=addD(ws,6);
- const prog=(k)=>{const [d,p]=r[k];return `<div class="prog" style="--c:${T(k).c}"><div class="t"><span>${h(T(k).n)}</span><span class="num">${d} / ${p}</span></div><div class="bar"><i style="width:${p?Math.round(d/p*100):0}%"></i></div></div>`};
+ const prog=(k)=>{const [d,p]=r[k];return `<div class="prog" style="--c:${T(k).c}"><div class="t"><span>${h(T(k).n)}${k==='estudo'?' (dias com horas anotadas)':''}</span><span class="num">${d} / ${p}</span></div><div class="bar"><i style="width:${p?Math.round(d/p*100):0}%"></i></div></div>`};
  const list=[];
  for(let i=0;i<7;i++){const ds=addD(ws,i);for(const it of itemsOn(ds))if(['academia','yoga','estudo'].includes(it.type))list.push(it)}
  const rows=[];
