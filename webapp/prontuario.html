@@ -982,13 +982,18 @@ function renderRemote(){
 let hzBusy=false;
 function ensureHorizon(){if(hzBusy||!booted||!S.rules.length)return;const ends=[addD(wk,6),calM+'-28',MV.m+'-28',monM+'-28',addD(sumWk,6)];const far=ends.sort().pop();
  const need=addD(far,10);if(S.rules.some(r=>!r.until&&(r.upto||'')<need)){hzBusy=true;try{genShifts(addD(far,45))}finally{hzBusy=false}}}
+// posição de rolagem de cada aba, para voltar ao mesmo ponto ao trocar de aba
+const TABY={};
 function render(){
+ const keepY=window.scrollY;
  memo={};applyTheme();ensureHorizon();memo={};
  if(tab==='email')tab='semana'; // aba de e-mails removida
  $('#todayLbl').textContent=dLong(today());
  $('#tabsTop').innerHTML=navHTML();$('#tabsBot').innerHTML=navHTML();
  const v=$('#view');
  v.innerHTML=({semana:vHome,resumo:vResumo,dinheiro:vMoney,energia:vEnergy,email:vMail,agendar:vQuick,ia:vAI}[tab]||vHome)();
+ // redesenhar (sincronização, avisos) não pode mover a tela
+ if(Math.abs(window.scrollY-keepY)>1)window.scrollTo(0,keepY);
  if(liveSheet&&!$('#sheet').hidden){const sh=$('#sheet .sh');const y=sh?sh.scrollTop:0;const f=liveSheet;sheetRefreshing=true;try{f()}finally{sheetRefreshing=false}liveSheet=f;const n=$('#sheet .sh');if(n)n.scrollTop=y}
 }
 
@@ -1826,7 +1831,7 @@ function sheet(title,body,wide,kind,head){
  el.hidden=false;const f=el.querySelector('input:not([type=hidden]):not([type=checkbox]),textarea,select');if(f&&!f.readOnly&&matchMedia('(min-width:760px)').matches)f.focus();
 }
 function closeSheet(){const b=sheetStack.pop();if(b&&!$('#sheet').hidden){liveSheet=null;curKind='__back';b();return}closeAll()}
-function closeAll(){sheetStack=[];curKind=null;liveSheet=null;$('#sheet').hidden=true;$('#sheet').innerHTML='';try{sheetOpener?.focus?.()}catch(e){}}
+function closeAll(){sheetStack=[];curKind=null;liveSheet=null;$('#sheet').hidden=true;$('#sheet').innerHTML='';try{sheetOpener?.focus?.({preventScroll:true})}catch(e){}}
 let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200)}
 const typeOpts=(sel,noShift=true)=>Object.keys(S.settings.types).filter(k=>!noShift||k!=='plantao').map(k=>`<option value="${k}" ${k===sel?'selected':''}>${h(T(k).n)}</option>`).join('');
 function taskForm({mode='new',task=null,ser=null,day=null,date=null,type='pessoal',title:t0=''}){
@@ -2020,7 +2025,7 @@ function armed(el){if(el.classList.contains('arm'))return true;el.classList.add(
 const ACT={
  reorg:el=>reorgSheet(el.dataset.ds),
  reorgApply:el=>{applyReorg(el.dataset.ds);closeSheet();toast('Agenda do dia reorganizada.')},
- tab:el=>{tab=el.dataset.v;try{localStorage.setItem(LS+'-tab',tab)}catch(e){}render();window.scrollTo(0,0)},
+ tab:el=>{const nv=el.dataset.v;TABY[tab]=window.scrollY;tab=nv;try{localStorage.setItem(LS+'-tab',tab)}catch(e){}render();const y=TABY[nv]||0;window.scrollTo(0,y);requestAnimationFrame(()=>window.scrollTo(0,y))},
  settings:()=>settingsSheet(),
  closeSheet:()=>closeSheet(),
  fab:()=>sheet('Adicionar',`<div class="menu"><button data-a="newTask"><i style="background:${T('pessoal').c}"></i><span>Tarefa ou evento<small>Estudo, treino, pessoal… com repetição opcional</small></span></button><button data-a="quickTab"><i style="background:var(--accent)"></i><span>Agendar direto<small>Escreva "dentista terça às 15h" e pronto</small></span></button><button data-a="newShift"><i style="background:${T('plantao').c}"></i><span>Plantão<small>Data, horário e tipo; valor calculado</small></span></button><button data-a="newExp"><i style="background:var(--s-sup)"></i><span>Gasto supérfluo<small>Anotação: já entra na fatura</small></span></button><button data-a="cardOpen"><i style="background:var(--s-fix)"></i><span>Valor da fatura<small>Atualizar ou registrar o fechamento</small></span></button></div>`),
