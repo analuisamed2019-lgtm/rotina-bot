@@ -675,11 +675,19 @@ function gcParse(res,med){let p=res&&res.payload;if(!p&&res&&res.content){try{p=
  const out=[];for(const e of (p&&p.events)||[]){if(e.status==='cancelled')continue;let date,time='',end='';
   if(e.start&&e.start.dateTime){/* horário local do próprio evento (agenda em America/Sao_Paulo) */const A=String(e.start.dateTime),B=String(e.end&&e.end.dateTime||A);date=A.slice(0,10);time=A.slice(11,16);end=B.slice(0,10)===date?B.slice(11,16):'23:59'}
   else if(e.start&&e.start.date)date=e.start.date;else continue;
-  out.push({id:e.id,date,time,end,title:String(e.summary||'(sem título)').replace(/\s*-\s*CM_\d+$/,''),link:e.htmlLink||'',med})}
+  out.push({id:e.id,date,time,end,title:String(e.summary||'(sem título)').replace(/\s*-\s*[A-Z]+_\d+$/,''),link:e.htmlLink||'',med})}
  return out}
 let gcMed=[],gcOwn=[];
 function gcRebuild(){const by={};for(const e of gcMed)(by[e.date]=by[e.date]||{med:[],own:[]}).med.push(e);for(const e of gcOwn)(by[e.date]=by[e.date]||{med:[],own:[]}).own.push(e);
  for(const k in by){by[k].med.sort((a,b)=>a.time.localeCompare(b.time));by[k].own.sort((a,b)=>a.time.localeCompare(b.time))}GC.byDay=by;GC.at=Date.now();memo={};renderRemote()}
+// grava quais dias têm estudo da Medway na janela lida, para os dias de estudo seguirem a agenda (e ficarem no histórico)
+function gcMedSync(a,b){
+ if(!booted){setTimeout(()=>gcMedSync(a,b),3000);return}
+ const old=S.study.med||{},med={};for(const k in old)if(k<a||k>b)med[k]=true;for(const e of gcMed)if(e.date>=a&&e.date<=b)med[e.date]=true;
+ const from=S.study.medFrom&&S.study.medFrom<a?S.study.medFrom:a,to=S.study.medTo&&S.study.medTo>b?S.study.medTo:b;
+ if(JSON.stringify(med)===JSON.stringify(old)&&from===S.study.medFrom&&to===S.study.medTo)return;
+ S.study={...S.study,med,medFrom:from,medTo:to};memo={};save('study');
+}
 async function gcStart(){
  if(GC.started)return;GC.started=true;let m=null;
  try{m=await window.claude?.use?.('mcp')}catch(e){}
@@ -690,7 +698,7 @@ async function gcStart(){
  catch(e){GC.state='err';GC.err=e&&e.code==='server_not_connected'?'Google Agenda não conectado ao Claude.':'Não consegui ler o Google Agenda.';renderRemote();return}
  const t=today(),win={startTime:addD(t,-14)+'T00:00:00',endTime:addD(t,60)+'T00:00:00',orderBy:'startTime',pageSize:250};
  const opt={cache:{staleTime:120000,gcTime:86400000},refetchInterval:900000};
- if(GC.medId)m.watchTool(GCS,'list_events',{...win,calendarId:GC.medId},ev=>{if(ev.type==='data'){gcMed=gcParse(ev.result,true);GC.state='ok';gcRebuild()}},opt);
+ if(GC.medId)m.watchTool(GCS,'list_events',{...win,calendarId:GC.medId},ev=>{if(ev.type==='data'){gcMed=gcParse(ev.result,true);GC.state='ok';gcRebuild();gcMedSync(addD(t,-14),addD(t,59))}},opt);
  m.watchTool(GCS,'list_events',{...win},ev=>{if(ev.type==='data'){gcOwn=gcParse(ev.result,false);GC.state='ok';gcRebuild()}},opt);
 }
 
@@ -1073,7 +1081,9 @@ function spark(n){
 function barPath(x,y,w,hh){const r=Math.min(4,hh,w/2);const b=y+hh;return `M${x},${b} V${y+r} Q${x},${y} ${x+r},${y} H${x+w-r} Q${x+w},${y} ${x+w},${y+r} V${b} Z`}
 /* ---------- Horas de estudo (residência): registro diário e visão do ano ---------- */
 const stH=ds=>{const v=S.study.log[ds];return v==null?null:(+v.h||0)};
-const isStudyDay=ds=>S.study.days.includes(P(ds).getDay());
+// dia de estudo = dia com estudo na Agenda Inteligente Medway (guardado em S.study.med a cada sincronização);
+// antes do início da sincronização, vale a regra antiga de dias da semana
+const isStudyDay=ds=>{const st=S.study;if(st.medFrom&&ds>=st.medFrom)return ds<=st.medTo?!!(st.med||{})[ds]:false;return st.days.includes(P(ds).getDay())};
 const fh1=v=>(Math.round(v*10)/10).toString().replace('.',',')+' h';
 const stStart=()=>{const ks=Object.keys(S.study.log).sort();return ks[0]&&ks[0]<'2026-10-19'?ks[0]:'2026-10-19'};
 function stRange(a,b){let tot=0,dias=0,plan=0,metaDays=0;for(let d=a;d<=b;d=addD(d,1)){const v=stH(d);if(v>0){tot+=v;dias++}if(isStudyDay(d))plan++}return {tot,dias,plan,meta:plan*S.study.goal}}
@@ -1099,7 +1109,7 @@ function studySheet(ds){
  ${stH(ds)!=null?`<div class="btns"><button class="btn sm danger" data-a="stDel" data-ds="${ds}">Apagar registro deste dia</button></div>`:''}
  <div class="sh-sec"><h4>Planejamento</h4>
   <div class="row" style="align-items:center"><span class="small">Meta por dia de estudo</span><button class="icon-btn st-pm" data-a="stGoal" data-v="-0.5" aria-label="Diminuir meta">−</button><b class="num">${fh1(S.study.goal)}</b><button class="icon-btn st-pm" data-a="stGoal" data-v="0.5" aria-label="Aumentar meta">+</button></div>
-  <div class="tiny muted" style="margin:10px 0 6px">Dias de estudo</div><div class="tags">${[1,2,3,4,5,6,0].map(g=>`<button class="tagb" data-a="stDay" data-v="${g}" aria-pressed="${S.study.days.includes(g)}">${WD[g]}</button>`).join('')}</div></div>
+  <div class="tiny muted" style="margin:10px 0 6px">${S.study.medFrom?'Os dias de estudo seguem a sua agenda da Medway (Google Agenda). Os dias abaixo valem só para datas anteriores à sincronização.':'Dias de estudo'}</div><div class="tags">${[1,2,3,4,5,6,0].map(g=>`<button class="tagb" data-a="stDay" data-v="${g}" aria-pressed="${S.study.days.includes(g)}">${WD[g]}</button>`).join('')}</div></div>
  <div class="btns"><button class="btn pri" data-a="closeSheet">Pronto</button></div>`,false,'study');
  liveSheet=()=>studySheet(ds);
 }
