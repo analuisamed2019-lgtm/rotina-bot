@@ -1169,7 +1169,7 @@ function cNotices(){
  for(const n of ns){
   const task=S.tasks.find(x=>x.id===n.tid);
   if(!task){n.seen=true;continue}
-  parts.push(`<div class="notice"><p><b>${h(task.type==='estudo'?'Estudo: '+task.title:task.title)}</b> não foi concluída em ${dLabel(n.from)} e foi para <b>${dLabel(task.date)}</b>.${task.moved>=3?` <span class="pill warn">remanejada ${task.moved}×</span>`:''}</p><div class="btns"><button class="btn sm" data-a="ack" data-id="${n.id}">Ciente</button><button class="btn sm" data-a="swapDay" data-id="${n.id}">Trocar dia</button></div></div>`);
+  parts.push(`<div class="notice"><p><b>${h(task.type==='estudo'?'Estudo: '+task.title:task.title)}</b> não foi concluída em ${dLabel(n.from)} e foi para <b>${dLabel(task.date)}</b>.${task.moved>=3?` <span class="pill warn">remanejada ${task.moved}×</span>`:''}</p><div class="btns"><button class="btn sm" data-a="ack" data-id="${n.id}">Ciente</button><button class="btn sm" data-a="swapDay" data-id="${n.id}">Trocar dia</button><button class="btn sm" data-a="noMove" data-id="${n.id}">Não realizei · deixar em ${dLabel(n.from)}</button></div></div>`);
  }
  {const fm=finalAskMonth();if(fm)parts.push(`<div class="notice"><p><b>Dia 5 · fatura de ${MOL[+fm.slice(5)-1]}</b>: quanto ela fechou? No dia 25 estava ${brl0(S.money.close[fm].fat)}.</p><div class="btns"><button class="btn sm pri" data-a="fatFin" data-m="${fm}">Informar valor final</button></div></div>`)}
  {const m25=closeAskMonth();if(m25)parts.push(`<div class="notice"><p><b>Dia 25 · fechamento de ${MOL[+m25.slice(5)-1]}</b>: quanto você recebeu, quanto fechou a fatura anterior, quanto já está a próxima e quanto investiu?</p><div class="btns"><button class="btn sm pri" data-a="close25" data-m="${m25}">Responder</button></div></div>`)}
@@ -2118,6 +2118,8 @@ const ACT={
  moveTask:el=>{const t=findTask(el.dataset.id);if(!t)return;t.date=el.dataset.ds;S.notices.forEach(n=>{if(n.tid===t.id)n.seen=true});save('tasks','notices');closeSheet();toast(`Movida para ${dLabel(t.date)}.`)},
  delShift:el=>{if(!armed(el))return;const x=removeShift(el.dataset.id);save('shifts','rules');closeSheet();if(x){const m=ym(x.date);toast(`Plantão de ${dLabel(x.date)} excluído · −${brl(shiftValue(x))} nas entradas de ${MOL[+m.slice(5)-1]} (agora ${brl(monthMoney(m).inc)}).`)}},
  sfQuick:el=>{$('#sfStart').value=el.dataset.s;$('#sfEnd').value=el.dataset.e;calcShift()},
+ // desfaz o remanejamento: volta a atividade para o dia original e marca como não realizada
+ noMove:el=>{const n=S.notices.find(x=>x.id===el.dataset.id);if(!n)return;const t=findTask(n.tid);if(t){t.date=n.from;t.moved=Math.max(0,(t.moved||1)-1);if(!t.moved){delete t.moved;delete t.orig}t.done=false;t.missed=true}n.seen=true;memo={};save('tasks','notices');toast(`Ficou em ${dLabel(n.from)}, marcada como não realizada.`)},
  ack:el=>{const n=S.notices.find(x=>x.id===el.dataset.id);if(n){n.seen=true;save('notices')}},
  swapDay:el=>{const n=S.notices.find(x=>x.id===el.dataset.id);if(!n)return;const t=findTask(n.tid);if(!t)return;
   sheet('Trocar dia',`<p class="small" style="margin:0"><b>${h(t.type==='estudo'?'Estudo: '+t.title:t.title)}</b> está em ${dLabel(t.date)}. Dias com folga:</p>${moveSugs(t.date,'moveTask',t.id)}<label class="field"><span>Ou escolha a data</span><input class="in" type="date" id="mvDate" value="${t.date}" data-a2="moveTaskInput" data-id="${t.id}"></label>`)},
